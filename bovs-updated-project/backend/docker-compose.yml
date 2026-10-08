@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bovs-postgres
+    environment:
+      POSTGRES_DB: bovs
+      POSTGRES_USER: bovs
+      POSTGRES_PASSWORD: bovs
+    ports:
+      - "5432:5432"
+    volumes:
+      - bovs-postgres-data:/var/lib/postgresql/data
+
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: bovs-keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - bovs-keycloak-db-data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: bovs-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8081
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./keycloak/bovs-realm.json:/opt/keycloak/data/import/bovs-realm.json
+    depends_on:
+      - keycloak-db
+
+  backend:
+    build: .
+    container_name: bovs-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      DB_URL: jdbc:postgresql://postgres:5432/bovs
+      DB_USERNAME: bovs
+      DB_PASSWORD: bovs
+      KEYCLOAK_ISSUER_URI: http://keycloak:8081/realms/bovs
+      KEYCLOAK_BASE_URL: http://keycloak:8081
+      KEYCLOAK_REALM: bovs
+      KEYCLOAK_AUTH_CLIENT_ID: bovs-backend
+      KEYCLOAK_AUTH_CLIENT_SECRET: change-me-in-production
+      BOVS_ALLOWED_ORIGINS: http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - keycloak
+
+volumes:
+  bovs-postgres-data:
+  bovs-keycloak-db-data:

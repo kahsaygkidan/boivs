@@ -1,0 +1,12 @@
+UBO registration wizard (NBE / FATF process 10.1 - 10.6) - full project.
+
+Flow (Sidebar > "UBO Registration"):
+  1 Customer (10.1)            company name, reg no, TIN, country, nature of business, directors
+  2 Ownership structure (10.2-10.3)  multi-layer tree, effective % calculated
+  3 Control & UBOs (10.4)      control basis per person, ownership/control UBO assessment
+  4 Fallback (10.5)            senior managing official, only when no natural-person UBO
+  5 Verify each UBO (10.6)     identity, address, ID document, PEP, sanctions, source of wealth/funds
+  6 Review & final submit      creates every BO record as PENDING for checker approval
+
+Database: Flyway V2 (ownership tree, BO fields) and V3 (residential address), postgres + oracle.
+Threshold: bovs.ubo.ownership-threshold (default 25) in application.yml.

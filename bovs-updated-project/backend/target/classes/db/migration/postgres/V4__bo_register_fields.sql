@@ -1,0 +1,12 @@
+ALTER TABLE beneficial_owner ADD COLUMN gender                 VARCHAR(20);
+ALTER TABLE beneficial_owner ADD COLUMN place_of_birth         VARCHAR(255);
+ALTER TABLE beneficial_owner ADD COLUMN residential_status     VARCHAR(20);
+ALTER TABLE beneficial_owner ADD COLUMN email_address          VARCHAR(255);
+ALTER TABLE beneficial_owner ADD COLUMN phone_number           VARCHAR(50);
+ALTER TABLE beneficial_owner ADD COLUMN occupation             VARCHAR(255);
+ALTER TABLE beneficial_owner ADD COLUMN date_of_issue          DATE;
+ALTER TABLE beneficial_owner ADD COLUMN ownership_nature       VARCHAR(500);
+ALTER TABLE beneficial_owner ADD COLUMN date_ceased            DATE;
+ALTER TABLE beneficial_owner ADD COLUMN source_of_information  VARCHAR(40);
+ALTER TABLE beneficial_owner ADD COLUMN additional_information VARCHAR(2000);
+ALTER TABLE beneficial_owner ADD COLUMN verification_date      TIMESTAMP;

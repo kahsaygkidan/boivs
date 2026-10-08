@@ -1,0 +1,416 @@
+package dashen.bank.boivs.service;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import dashen.bank.boivs.domain.BeneficialOwner;
+import dashen.bank.boivs.domain.LegalPerson;
+import dashen.bank.boivs.domain.enums.AuditAction;
+import dashen.bank.boivs.domain.enums.BoCapacity;
+import dashen.bank.boivs.domain.enums.ControlBasis;
+import dashen.bank.boivs.domain.enums.IdDocumentType;
+import dashen.bank.boivs.domain.enums.OwnershipType;
+import dashen.bank.boivs.domain.enums.BoStatus;
+import dashen.bank.boivs.dto.BeneficialOwnerCreateRequest;
+import dashen.bank.boivs.dto.BeneficialOwnerUpdateRequest;
+import dashen.bank.boivs.dto.DashboardStatsResponse;
+import dashen.bank.boivs.exception.InvalidWorkflowStateException;
+import dashen.bank.boivs.exception.NotFoundException;
+import dashen.bank.boivs.repository.BeneficialOwnerRepository;
+import dashen.bank.boivs.service.OwnershipStructureService.Derivation;
+import dashen.bank.boivs.security.CurrentUser;
+
+@Service
+public class BeneficialOwnerService {
+
+    private final BeneficialOwnerRepository boRepository;
+    private final LegalPersonService legalPersonService;
+    private final BoReferenceGenerator referenceGenerator;
+    private final CurrentUser currentUser;
+    private final AuditService auditService;
+    private final OwnershipStructureService ownershipStructureService;
+
+    public BeneficialOwnerService(BeneficialOwnerRepository boRepository,
+            LegalPersonService legalPersonService,
+            BoReferenceGenerator referenceGenerator,
+            CurrentUser currentUser,
+            AuditService auditService,
+            OwnershipStructureService ownershipStructureService) {
+        this.boRepository = boRepository;
+        this.legalPersonService = legalPersonService;
+        this.referenceGenerator = referenceGenerator;
+        this.currentUser = currentUser;
+        this.auditService = auditService;
+        this.ownershipStructureService = ownershipStructureService;
+    }
+
+    /**
+     * MAKER (or ADMIN) creates a new record, submitted immediately for checker
+     * review.
+     */
+    @Transactional
+    public BeneficialOwner create(BeneficialOwnerCreateRequest req, boolean submitImmediately) {
+        LegalPerson legalPerson = legalPersonService.getById(req.legalPersonId());
+
+        BeneficialOwner bo = new BeneficialOwner();
+        bo.setBoReference(referenceGenerator.next());
+        bo.setLegalPerson(legalPerson);
+        bo.setFullName(req.fullName());
+        bo.setDateOfBirth(req.dateOfBirth());
+        bo.setGender(req.gender());
+        bo.setPlaceOfBirth(req.placeOfBirth().trim());
+        bo.setResidentialStatus(req.residentialStatus());
+        bo.setEmailAddress(req.emailAddress().trim());
+        bo.setPhoneNumber(req.phoneNumber().trim());
+        bo.setOccupation(req.occupation().trim());
+        bo.setSourceOfInformation(req.sourceOfInformation());
+        bo.setAdditionalInformation(blankToNull(req.additionalInformation()));
+        if (!req.dateOfIssue().isBefore(req.dateOfExpiry())) {
+            throw new InvalidWorkflowStateException("The ID document's date of issue must be before its expiry date");
+        }
+        bo.setDateOfIssue(req.dateOfIssue());
+        bo.setIdDocumentType(req.idDocumentType());
+        bo.setIdVerificationStatus(req.idVerificationStatus());
+        validateIdentification(req.idDocumentType(), req.idNumber(), req.idTypeDetail());
+        bo.setIdTypeDetail(blankToNull(req.idTypeDetail()));
+        bo.setIdNumber(req.idNumber());
+        bo.setNationality(req.nationality());
+        bo.setResidentialAddress(req.residentialAddress().trim());
+        bo.setCountryOfIssue(req.countryOfIssue());
+        bo.setDateOfExpiry(req.dateOfExpiry());
+        bo.setDateBecameBo(req.dateBecameBo());
+        bo.setPep(req.pep());
+        bo.setPepDetails(req.pepDetails());
+        bo.setSourceOfWealth(blankToNull(req.sourceOfWealth()));
+        bo.setSourceOfFunds(blankToNull(req.sourceOfFunds()));
+        bo.setSanctionsScreened(req.sanctionsScreened());
+        applyOwnershipAndControl(bo, req, legalPerson);
+        bo.setOwnershipNature(natureOf(bo));
+        if (req.pep() && bo.getSourceOfWealth() == null) {
+            throw new InvalidWorkflowStateException("Source of wealth is required for a politically exposed person");
+        }
+        bo.setCreatedBy(currentUser.username());
+        bo.setStatus(submitImmediately ? BoStatus.PENDING : BoStatus.DRAFT);
+
+        BeneficialOwner saved = boRepository.save(bo);
+        if (saved.getOwnershipNodeId() != null) {
+            ownershipStructureService.markLinked(saved.getOwnershipNodeId(), saved.getId());
+        }
+        auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_CREATED,
+                "Created record for '" + saved.getFullName() + "' under legal person '" + legalPerson.getName()
+                + "' (" + saved.getCapacity() + ", " + saved.getOwnershipPercentage().stripTrailingZeros().toPlainString()
+                + "%)");
+        if (submitImmediately) {
+            auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_SUBMITTED,
+                    "Submitted for checker verification");
+        }
+        return saved;
+    }
+
+
+    /**
+     * Fills ownership type / % / chain / control from the ownership tree when the record is registered
+     * from a node (automatic calculation), otherwise validates the manually captured values.
+     */
+    private void applyOwnershipAndControl(BeneficialOwner bo, BeneficialOwnerCreateRequest req, LegalPerson legalPerson) {
+        BoCapacity capacity = req.capacity() != null ? req.capacity() : BoCapacity.OWNERSHIP;
+        boolean fromTree = req.ownershipNodeId() != null && !req.ownershipNodeId().isBlank();
+
+        if (capacity == BoCapacity.SENIOR_MANAGING_OFFICIAL) {
+            if (fromTree) {
+                throw new InvalidWorkflowStateException(
+                        "A senior managing official is a CDD fallback and cannot be linked to a shareholder");
+            }
+            ownershipStructureService.requireFallbackAllowed(legalPerson.getId());
+            bo.setCapacity(capacity);
+            bo.setOwnershipType(OwnershipType.CONTROL_BY_OTHER_MEANS);
+            bo.setOwnershipPercentage(BigDecimal.ZERO);
+            bo.setOwnershipChain(blankToNull(req.ownershipChain()));
+            return;
+        }
+
+        if (fromTree) {
+            Derivation d = ownershipStructureService.derive(legalPerson.getId(), req.ownershipNodeId());
+            if (!d.qualifiesByOwnership() && !d.qualifiesByControl()) {
+                throw new InvalidWorkflowStateException("This person's aggregated ownership ("
+                        + d.effectivePercentage().stripTrailingZeros().toPlainString() + "%) is below the "
+                        + ownershipStructureService.threshold().stripTrailingZeros().toPlainString()
+                        + "% threshold and no control basis is recorded, so they are not a UBO");
+            }
+            bo.setOwnershipNodeId(req.ownershipNodeId());
+            bo.setCapacity(d.qualifiesByOwnership() ? BoCapacity.OWNERSHIP : BoCapacity.CONTROL);
+            bo.setOwnershipType(d.ownershipType());
+            bo.setOwnershipPercentage(d.effectivePercentage());
+            bo.setOwnershipChain(d.chain());
+            bo.setControlBasis(joinControls(d.controlBasis()));
+            return;
+        }
+
+        // Manual capture (no tree): validate what the maker typed.
+        List<ControlBasis> controls = req.controlBasis() == null ? List.of() : req.controlBasis();
+        boolean hasPercentage = req.ownershipPercentage().signum() > 0;
+        if (!hasPercentage && controls.isEmpty()) {
+            throw new InvalidWorkflowStateException(
+                    "Ownership percentage must be greater than 0 unless a control basis is recorded");
+        }
+        if (req.ownershipType() == OwnershipType.INDIRECT && blankToNull(req.ownershipChain()) == null) {
+            throw new InvalidWorkflowStateException(
+                    "The ownership chain is required for indirect ownership (e.g. ABC PLC → XYZ Holdings → Mr. A)");
+        }
+        bo.setCapacity(capacity);
+        bo.setOwnershipType(req.ownershipType());
+        bo.setOwnershipPercentage(req.ownershipPercentage());
+        bo.setOwnershipChain(blankToNull(req.ownershipChain()));
+        bo.setControlBasis(joinControls(controls));
+    }
+
+    /** "Nature of ownership or control": shareholding and/or the control bases, in words. */
+    private static String natureOf(BeneficialOwner bo) {
+        if (bo.getCapacity() == BoCapacity.SENIOR_MANAGING_OFFICIAL) {
+            return "Senior managing official (CDD fallback)";
+        }
+        List<String> parts = new java.util.ArrayList<>();
+        if (bo.getOwnershipPercentage() != null && bo.getOwnershipPercentage().signum() > 0) {
+            parts.add(bo.getOwnershipType() == OwnershipType.INDIRECT ? "Indirect shareholding" : "Shareholding");
+        }
+        if (bo.getControlBasis() != null && !bo.getControlBasis().isBlank()) {
+            for (String c : bo.getControlBasis().split(",")) {
+                String t = c.trim().toLowerCase().replace('_', ' ');
+                parts.add(Character.toUpperCase(t.charAt(0)) + t.substring(1));
+            }
+        }
+        String nature = String.join("; ", parts);
+        return nature.length() > 500 ? nature.substring(0, 497) + "..." : nature;
+    }
+
+    /** The number format and extra detail depend on the selected ID document type. */
+    private static void validateIdentification(IdDocumentType type, String idNumber, String idTypeDetail) {
+        String number = idNumber.trim();
+        boolean hasDetail = blankToNull(idTypeDetail) != null;
+        switch (type) {
+            case FAYDA_ID -> {
+                if (!number.matches("\\d{12,16}")) {
+                    throw new InvalidWorkflowStateException("Fayda number must be 12 to 16 digits");
+                }
+            }
+            case TIN -> {
+                if (!number.matches("\\d{10}")) {
+                    throw new InvalidWorkflowStateException("TIN must be 10 digits");
+                }
+            }
+            case PASSPORT -> {
+                if (!number.matches("[A-Za-z0-9]{6,12}")) {
+                    throw new InvalidWorkflowStateException("Passport number must be 6 to 12 letters or digits");
+                }
+            }
+            case KEBELE_ID -> {
+                if (!hasDetail) {
+                    throw new InvalidWorkflowStateException("Kebele / Woreda is required for a Kebele ID");
+                }
+            }
+            case OTHER -> {
+                if (!hasDetail) {
+                    throw new InvalidWorkflowStateException("The document name is required when the ID type is Other");
+                }
+            }
+            default -> { }
+        }
+    }
+
+    private static String joinControls(List<ControlBasis> controls) {
+        return controls == null || controls.isEmpty() ? null
+                : controls.stream().distinct().map(Enum::name).collect(Collectors.joining(","));
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /**
+     * MAKER (or ADMIN) edits a record until it is verified: allowed while the record is a draft,
+     * pending verification or rejected. Verified and ceased records are locked.
+     * No field validation is applied here (the checker reviews the record before approval);
+     * only the fields that are sent are changed.
+     */
+    @Transactional
+    public BeneficialOwner update(String id, BeneficialOwnerUpdateRequest req) {
+        BeneficialOwner bo = getById(id);
+        if (bo.getStatus() != BoStatus.DRAFT && bo.getStatus() != BoStatus.PENDING
+                && bo.getStatus() != BoStatus.REJECTED) {
+            throw new InvalidWorkflowStateException(
+                    "Only draft, pending or rejected records can be edited; verified records are locked");
+        }
+
+        // Mandatory columns: ignore blanks / nulls.
+        if (blankToNull(req.fullName()) != null) bo.setFullName(req.fullName().trim());
+        if (blankToNull(req.nationality()) != null) bo.setNationality(req.nationality().trim());
+        if (blankToNull(req.idNumber()) != null) bo.setIdNumber(req.idNumber().trim());
+        if (blankToNull(req.countryOfIssue()) != null) bo.setCountryOfIssue(req.countryOfIssue().trim());
+        if (req.dateOfBirth() != null) bo.setDateOfBirth(req.dateOfBirth());
+        if (req.dateOfExpiry() != null) bo.setDateOfExpiry(req.dateOfExpiry());
+        if (req.dateBecameBo() != null) bo.setDateBecameBo(req.dateBecameBo());
+        if (req.idDocumentType() != null) bo.setIdDocumentType(req.idDocumentType());
+
+        // Optional columns: can be changed or cleared.
+        if (req.gender() != null) bo.setGender(req.gender());
+        if (req.residentialStatus() != null) bo.setResidentialStatus(req.residentialStatus());
+        if (req.idVerificationStatus() != null) bo.setIdVerificationStatus(req.idVerificationStatus());
+        if (req.sourceOfInformation() != null) bo.setSourceOfInformation(req.sourceOfInformation());
+        if (req.dateOfIssue() != null) bo.setDateOfIssue(req.dateOfIssue());
+        if (req.placeOfBirth() != null) bo.setPlaceOfBirth(blankToNull(req.placeOfBirth()));
+        if (req.residentialAddress() != null) bo.setResidentialAddress(blankToNull(req.residentialAddress()));
+        if (req.emailAddress() != null) bo.setEmailAddress(blankToNull(req.emailAddress()));
+        if (req.phoneNumber() != null) bo.setPhoneNumber(blankToNull(req.phoneNumber()));
+        if (req.occupation() != null) bo.setOccupation(blankToNull(req.occupation()));
+        if (req.idTypeDetail() != null) bo.setIdTypeDetail(blankToNull(req.idTypeDetail()));
+        if (req.additionalInformation() != null) bo.setAdditionalInformation(blankToNull(req.additionalInformation()));
+        if (req.sourceOfWealth() != null) bo.setSourceOfWealth(blankToNull(req.sourceOfWealth()));
+        if (req.sourceOfFunds() != null) bo.setSourceOfFunds(blankToNull(req.sourceOfFunds()));
+        if (req.pep() != null) bo.setPep(req.pep());
+        if (req.pepDetails() != null) bo.setPepDetails(blankToNull(req.pepDetails()));
+        if (req.sanctionsScreened() != null) bo.setSanctionsScreened(req.sanctionsScreened());
+        bo.setUpdatedBy(currentUser.username());
+
+        BeneficialOwner saved = boRepository.save(bo);
+        auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_UPDATED,
+                "Record edited by maker while " + saved.getStatus());
+        return saved;
+    }
+
+    /**
+     * MAKER (or ADMIN) submits a draft record into the verification queue.
+     */
+    @Transactional
+    public BeneficialOwner submit(String id) {
+        BeneficialOwner bo = getById(id);
+        if (bo.getStatus() != BoStatus.DRAFT && bo.getStatus() != BoStatus.REJECTED) {
+            throw new InvalidWorkflowStateException("Only draft or rejected records can be submitted for verification");
+        }
+        bo.setStatus(BoStatus.PENDING);
+        bo.setRejectionReason(null);
+        BeneficialOwner saved = boRepository.save(bo);
+        auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_SUBMITTED,
+                "Submitted for checker verification");
+        return saved;
+    }
+
+    /**
+     * CHECKER (or ADMIN) approves a pending record. A checker may not approve
+     * their own submission.
+     */
+    @Transactional
+    public BeneficialOwner approve(String id) {
+        BeneficialOwner bo = getById(id);
+        requirePending(bo);
+        enforceSegregationOfDuties(bo);
+        bo.setStatus(BoStatus.VERIFIED);
+        bo.setDecidedBy(currentUser.username());
+        bo.setDecidedAt(java.time.LocalDateTime.now());
+        bo.setVerificationDate(java.time.LocalDateTime.now());
+        BeneficialOwner saved = boRepository.save(bo);
+        auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_APPROVED,
+                "Verified by checker");
+        return saved;
+    }
+
+    /**
+     * CHECKER (or ADMIN) rejects a pending record with a mandatory reason,
+     * returning it to the maker.
+     */
+    @Transactional
+    public BeneficialOwner reject(String id, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidWorkflowStateException("A rejection reason is required");
+        }
+        BeneficialOwner bo = getById(id);
+        requirePending(bo);
+        enforceSegregationOfDuties(bo);
+        bo.setStatus(BoStatus.REJECTED);
+        bo.setRejectionReason(reason);
+        bo.setDecidedBy(currentUser.username());
+        bo.setDecidedAt(java.time.LocalDateTime.now());
+        BeneficialOwner saved = boRepository.save(bo);
+        auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_REJECTED,
+                "Rejected: " + reason);
+        return saved;
+    }
+
+    /**
+     * CHECKER or ADMIN marks a verified record as ceased (the BO no longer
+     * holds the ownership).
+     */
+    @Transactional
+    public BeneficialOwner cease(String id, String reason) {
+        BeneficialOwner bo = getById(id);
+        if (bo.getStatus() != BoStatus.VERIFIED) {
+            throw new InvalidWorkflowStateException("Only verified records can be marked as ceased");
+        }
+        bo.setStatus(BoStatus.CEASED);
+        bo.setDateCeased(java.time.LocalDate.now());
+        bo.setRejectionReason(reason);
+        bo.setDecidedBy(currentUser.username());
+        bo.setDecidedAt(java.time.LocalDateTime.now());
+        BeneficialOwner saved = boRepository.save(bo);
+        auditService.record("BENEFICIAL_OWNER", saved.getBoReference(), AuditAction.BO_CEASED,
+                reason == null || reason.isBlank() ? "Marked as ceased" : "Ceased: " + reason);
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public BeneficialOwner getById(String id) {
+        return boRepository.findByIdFetchLegalPerson(id)
+                .orElseThrow(() -> new NotFoundException("Beneficial owner record not found: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public BeneficialOwner getByReference(String reference) {
+        return boRepository.findByBoReferenceFetchLegalPerson(reference)
+                .orElseThrow(() -> new NotFoundException("Beneficial owner record not found: " + reference));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BeneficialOwner> search(BoStatus status, Boolean pep, String createdBy, String query, Pageable pageable) {
+        return boRepository.search(status, pep, createdBy, query, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BeneficialOwner> queue(Pageable pageable) {
+        return boRepository.findByStatusFetchLegalPerson(BoStatus.PENDING, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardStatsResponse stats() {
+        long total = boRepository.count();
+        long verified = boRepository.countByStatus(BoStatus.VERIFIED);
+        long pending = boRepository.countByStatus(BoStatus.PENDING);
+        long rejected = boRepository.countByStatus(BoStatus.REJECTED);
+        long ceased = boRepository.countByStatus(BoStatus.CEASED);
+        long pep = boRepository.countByPepTrue();
+        return new DashboardStatsResponse(total, verified, pending, rejected, ceased, pep);
+    }
+
+    private void requirePending(BeneficialOwner bo) {
+        if (bo.getStatus() != BoStatus.PENDING) {
+            throw new InvalidWorkflowStateException("Only records pending verification can be decided on");
+        }
+    }
+
+    /**
+     * Maker-checker segregation of duties: a user cannot verify their own
+     * submission, unless they are ADMIN.
+     */
+    private void enforceSegregationOfDuties(BeneficialOwner bo) {
+        if (currentUser.hasRole("ADMIN")) {
+            return;
+        }
+        if (bo.getCreatedBy() != null && bo.getCreatedBy().equalsIgnoreCase(currentUser.username())) {
+            throw new InvalidWorkflowStateException("A checker cannot verify a record they submitted themselves");
+        }
+    }
+}

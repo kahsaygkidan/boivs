@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: bo-verification-backend
+
+  profiles:
+    active: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 20MB
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/bovs}
+
+server:
+  port: ${SERVER_PORT:8082}
+  error:
+    include-message: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+bovs:
+  ubo:
+    # Aggregated (direct + indirect) ownership at/above this % makes a natural person a UBO.
+    # Confirm against the NBE directive / BRD before go-live.
+    ownership-threshold: ${BOVS_UBO_THRESHOLD:25}
+
+  cors:
+    allowed-origins: ${BOVS_ALLOWED_ORIGINS:http://localhost:5173}
+
+  storage:
+    documents-dir: ${BOVS_DOCS_DIR:./bovs-documents}
+
+  jwt:
+    roles-claim: realm_access.roles
+    client-roles-claim-client-id: ${KEYCLOAK_CLIENT_ID:bovs-frontend}
+
+  keycloak:
+    # Used server-side only, to perform login/refresh/logout on behalf of the SPA so
+    # the browser never has to redirect to Keycloak's own hosted login page.
+    base-url: ${KEYCLOAK_BASE_URL:http://localhost:8080}
+    realm: ${KEYCLOAK_REALM:bovs}
+    client-id: ${KEYCLOAK_AUTH_CLIENT_ID:bovs-backend}
+    client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET:change-me-in-production}
+
+  # Session timing exposed to the frontend via GET /api/config/session, so the UI's
+  # idle-logout and proactive-refresh timers always match what's actually enforced.
+  # NOTE: these two values are a UX layer only. The real security boundary is
+  # Keycloak's realm-level "SSO Session Idle" setting (see the Keycloak config
+  # below) — set that to the same idle-timeout-minutes value so a stolen/replayed
+  # refresh token also stops working after this much inactivity, not just the UI.
+  session:
+    idle-timeout-minutes: ${BOVS_IDLE_TIMEOUT_MINUTES:30}
+    refresh-lead-seconds: ${BOVS_REFRESH_LEAD_SECONDS:30}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

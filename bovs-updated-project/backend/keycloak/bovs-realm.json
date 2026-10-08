@@ -1,0 +1,79 @@
+{
+  "realm": "bovs",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 300,
+  "roles": {
+    "realm": [
+      { "name": "MAKER", "description": "Registers beneficial owner records and submits them for verification" },
+      { "name": "CHECKER", "description": "Reviews, approves, rejects, or ceases beneficial owner records" },
+      { "name": "AUDITOR", "description": "Read-only access to all records and the full audit trail" },
+      { "name": "ADMIN", "description": "Full administrative access across all workflow stages" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "bovs-frontend",
+      "name": "BOVS Frontend (Vite/React SPA)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "redirectUris": [ "http://localhost:5173/*" ],
+      "webOrigins": [ "http://localhost:5173" ]
+    },
+    {
+      "clientId": "bovs-backend",
+      "name": "BOVS Backend (confidential, mediates login/refresh/logout for the SPA)",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "secret": "change-me-in-production",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "d.alemu",
+      "enabled": true,
+      "email": "d.alemu@example.gov.et",
+      "firstName": "Dawit",
+      "lastName": "Alemu",
+      "credentials": [ { "type": "password", "value": "Passw0rd!", "temporary": false } ],
+      "realmRoles": [ "MAKER" ]
+    },
+    {
+      "username": "kahsayge",
+      "enabled": true,
+      "email": "kahsayge@example.gov.et",
+      "firstName": "Kahsay",
+      "lastName": "Gebrekidan",
+      "credentials": [ { "type": "password", "value": "Passw0rd!", "temporary": false } ],
+      "realmRoles": [ "CHECKER" ]
+    },
+    {
+      "username": "auditor1",
+      "enabled": true,
+      "email": "auditor1@example.gov.et",
+      "firstName": "Selam",
+      "lastName": "Worku",
+      "credentials": [ { "type": "password", "value": "Passw0rd!", "temporary": false } ],
+      "realmRoles": [ "AUDITOR" ]
+    },
+    {
+      "username": "admin1",
+      "enabled": true,
+      "email": "admin1@example.gov.et",
+      "firstName": "System",
+      "lastName": "Administrator",
+      "credentials": [ { "type": "password", "value": "Passw0rd!", "temporary": false } ],
+      "realmRoles": [ "MAKER", "CHECKER", "AUDITOR", "ADMIN" ]
+    }
+  ]
+}
