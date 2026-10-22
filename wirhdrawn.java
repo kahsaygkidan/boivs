@@ -1,3 +1,63 @@
+-import { searchBoRecords } from '../api/bovsApi.js';
++import { removeBoRecord, searchBoRecords } from '../api/bovsApi.js';
+-export default function Records({ onRegister, canRegister, onOpen }) {
++export default function Records({ onRegister, canRegister, canRemove, onOpen }) {
+
++  const removable = (r) => canRemove && (r.status === 'PENDING' || r.status === 'DRAFT');
++  const columnCount = canRemove ? COLUMN_COUNT + 1 : COLUMN_COUNT;
+
+detail=============
+
+
+        import { ..., rejectBoRecord, removeBoRecord, requestAmendment, ... } from '../api/bovsApi.js'
+
++  const handleRemove = async () => {
++    if (!window.confirm(`Remove ${record.boReference} from the list?\n\nIt will be withdrawn from verification. You can register the person again later.`)) return
++    setBusy(true)
++    setError(null)
++    try {
++      await removeBoRecord(id)
++      onBack()
++    } catch (err) {
++      setError(err.friendlyMessage || 'Failed to remove the record')
++      setBusy(false)
++    }
++  }
+
+ // Actions card, inside the maker block:
++  {['DRAFT', 'PENDING'].includes(record.status) && (
++    <button className="btn btn-danger-outline" style={{ width: '100%' }} disabled={busy} onClick={handleRemove}>
++      Remove from list
++    </button>
++  )}
+       
+       +========records
+       
+       const handleRemove = async (e, r) => {
++    e.stopPropagation();
++    if (!window.confirm(`Remove ${r.boReference} (${r.fullName}) from the list?\n\nIt will be withdrawn from verification. You can register the person again later.`)) return;
++    try {
++      await removeBoRecord(r.id);
++      setRecords((list) => list.filter((x) => x.id !== r.id));
++    } catch (err) {
++      setError(err.friendlyMessage || 'Failed to remove the record');
++    }
++  };
+
+   <th>Status</th>
++  {canRemove && <th>Action</th>}
+ ...
+   <StatusBadge status={r.status} /></td>
++  {canRemove && (
++    <td>
++      {removable(r) && (
++        <button type="button" className="btn btn-danger-outline btn-sm" onClick={(e) => handleRemove(e, r)}>Remove</button>
++      )}
++    </td>
++  )}
+ // every colSpan={COLUMN_COUNT} becomes colSpan={columnCount}
+
+
 record
        CEASED: "Ceased",
 +  WITHDRAWN: "Removed",
