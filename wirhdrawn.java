@@ -1,3 +1,12 @@
++   /** Removes (withdraws) a record that is still a draft or pending verification. */
++   @DeleteMapping("/{id}")
++   @PreAuthorize("hasAnyRole('MAKER','ADMIN')")
++   public ResponseEntity<Void> remove(@PathVariable String id, @RequestParam(required = false) String reason) {
++       beneficialOwnerService.withdraw(id, reason);
++       return ResponseEntity.noContent().build();
++   }
+
+
 +   @Transactional
 +   @Override
 +   public BeneficialOwner withdraw(String id, String reason) {
