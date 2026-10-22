@@ -1,3 +1,12 @@
+.btn-danger-outline { background: transparent; color: var(--red-600); border: 1px solid var(--red-600); }
+.btn-danger-outline:hover { background: var(--red-100); }
+.btn-danger-outline:disabled { opacity: .6; cursor: not-allowed; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.badge.withdrawn { background: var(--grey-200); color: var(--grey-500); }
+.badge.withdrawn .dot { background: var(--grey-500); }
+
+
+
 -import { searchBoRecords } from '../api/bovsApi.js';
 +import { removeBoRecord, searchBoRecords } from '../api/bovsApi.js';
 -export default function Records({ onRegister, canRegister, onOpen }) {
