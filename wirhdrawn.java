@@ -1,3 +1,14 @@
+record
+       CEASED: "Ceased",
++  WITHDRAWN: "Removed",
+ ...
+   REJECTED: "Rejected",   // in approvalStatusLabel
++  WITHDRAWN: "Removed by maker",
+
+api
++export const removeBoRecord = (id, reason) =>
++  apiClient.delete(`/bo-records/${id}`, { params: reason ? { reason } : undefined }).then((r) => r.data);
+
 +   /** Removes (withdraws) a record that is still a draft or pending verification. */
 +   @DeleteMapping("/{id}")
 +   @PreAuthorize("hasAnyRole('MAKER','ADMIN')")
