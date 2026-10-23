@@ -1,4 +1,29 @@
+
+
+@Transactional(readOnly = true)
+public Page<BeneficialOwner> search(BoStatus status, Boolean pep, String createdBy, String query, Pageable pageable) {
+    return boRepository.search(status, pep, createdBy, query, phoneDigitsOf(query), pageable);
+}
+
+/**
+ * Digits-only form of the search text, used to match phone numbers regardless of formatting
+ * (+251 91 123 4567, 0911234567, 091-123-4567). Only applied when the text looks like a phone
+ * number (digits and + - ( ) . spaces only) and has at least 4 digits, so a BO reference such as
+ * "BO-2026-000123" or a short number doesn't match unrelated phone numbers.
+ */
+private static String phoneDigitsOf(String query) {
+    if (query == null || !query.matches("[+()\\d\\s.-]+")) {
+        return null;
+    }
+    String digits = query.replaceAll("\\D", "");
+    return digits.length() >= 4 ? digits : null;
+}
+
+≈
+
 package dashen.bank.boivs.service;
+
+
 
 import java.math.BigDecimal;
 import java.util.List;
