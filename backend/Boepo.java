@@ -1,3 +1,40 @@
+@Query(value = """
+    select b from BeneficialOwner b left join fetch b.legalPerson
+    where (:status is null or b.status = :status)
+      and (b.status <> dashen.bank.boivs.domain.enums.BoStatus.WITHDRAWN)
+      and (:pep is null or b.pep = :pep)
+      and (:createdBy is null or b.createdBy = cast(:createdBy as string))
+      and (:search is null
+           or lower(b.fullName) like lower(concat('%', cast(:search as string), '%'))
+           or lower(b.phoneNumber) like lower(concat('%', cast(:search as string), '%'))
+           or lower(b.boReference) like lower(concat('%', cast(:search as string), '%'))
+           or (cast(:phoneDigits as string) is not null
+               and replace(replace(replace(replace(replace(b.phoneNumber, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '')
+                   like concat('%', cast(:phoneDigits as string), '%')))
+    """,
+        countQuery = """
+    select count(b) from BeneficialOwner b
+    where (:status is null or b.status = :status)
+      and (b.status <> dashen.bank.boivs.domain.enums.BoStatus.WITHDRAWN)
+      and (:pep is null or b.pep = :pep)
+      and (:createdBy is null or b.createdBy = cast(:createdBy as string))
+      and (:search is null
+           or lower(b.fullName) like lower(concat('%', cast(:search as string), '%'))
+           or lower(b.phoneNumber) like lower(concat('%', cast(:search as string), '%'))
+           or lower(b.boReference) like lower(concat('%', cast(:search as string), '%'))
+           or (cast(:phoneDigits as string) is not null
+               and replace(replace(replace(replace(replace(b.phoneNumber, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '')
+                   like concat('%', cast(:phoneDigits as string), '%')))
+    """)
+Page<BeneficialOwner> search(@Param("status") BoStatus status,
+        @Param("pep") Boolean pep,
+        @Param("createdBy") String createdBy,
+        @Param("search") String search,
+        @Param("phoneDigits") String phoneDigits,
+        Pageable pageable);
+
+
+
 package dashen.bank.boivs.repository;
 
 import java.util.Optional;
