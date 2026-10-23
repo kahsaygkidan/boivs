@@ -1,3 +1,39 @@
+
+====beginv3
+
+/* ---------- Searchable combobox ---------- */
+.combobox { position: relative; }
+.combobox-list {
+  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 260px; overflow-y: auto; margin: 0; padding: 4px;
+  list-style: none; background: #fff; border: 1px solid #d0d5dd;
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+.combobox-item { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.combobox-item.hi { background: #eef4ff; }
+.combobox-item.sel { font-weight: 600; }
+.combobox-sub { color: #667085; font-size: 12px; }
+.combobox-empty { padding: 10px; color: #667085; }
+
+/* ---------- Verify step: record view ---------- */
+.record-list { margin: 0; max-width: 760px; }
+.record-row { display: grid; grid-template-columns: 200px 1fr; gap: 16px; padding: 9px 0; border-bottom: 1px solid #eaecf0; }
+.record-row dt { color: #667085; }
+.record-row dd { margin: 0; font-weight: 500; }
+@media (max-width: 600px) { .record-row { grid-template-columns: 1fr; gap: 2px; } }
+
+/* ---------- Verify step: edit form in the record layout ---------- */
+.record-edit .record-row { align-items: start; }
+.record-edit dt { padding-top: 8px; }
+.record-edit dd input:not([type="file"]):not([type="checkbox"]),
+.record-edit dd select { width: 100%; }
+.record-stack { display: flex; flex-direction: column; gap: 8px; }
+.record-section { margin: 18px 0 4px; font-weight: 600; color: #344054; }
+
+
+====endv3
+
+
 ==========beginv2==
 /* ---------- Searchable combobox ---------- */
 .combobox { position: relative; }
