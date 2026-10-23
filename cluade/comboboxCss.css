@@ -1,4 +1,113 @@
 
+
+====v4
+
+/* ---------- Searchable combobox ---------- */
+.combobox { position: relative; }
+.combobox-list {
+  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 260px; overflow-y: auto; margin: 0; padding: 4px;
+  list-style: none; background: #fff; border: 1px solid #d0d5dd;
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+.combobox-item { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.combobox-item.hi { background: #eef4ff; }
+.combobox-item.sel { font-weight: 600; }
+.combobox-sub { color: #667085; font-size: 12px; }
+.combobox-empty { padding: 10px; color: #667085; }
+
+/* ==========================================================================
+   Verify Detail — record view & record-style edit form
+   ========================================================================== */
+
+/* callout with the calculated ownership summary */
+.derived-box {
+  margin: 14px 0 16px; padding: 12px 14px;
+  background: #f5f8ff; border: 1px solid #d6e4ff; border-left: 3px solid #2e6bf6;
+  border-radius: 8px; color: #1d2939; font-size: 13.5px; line-height: 1.55;
+}
+.derived-box .chain { color: #475467; font-size: 12.5px; margin-top: 2px; }
+
+/* the list container: one bordered card */
+.record-list {
+  margin: 0; padding: 0;
+  background: #fff; border: 1px solid #e4e7ec; border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  overflow: hidden;
+}
+
+/* a row: small caps label on the left, value on the right */
+.record-row {
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid #eef0f4;
+  transition: background .12s ease;
+}
+.record-row:last-child { border-bottom: 0; }
+.record-row:nth-child(even) { background: #fafbfc; }
+.record-row:hover { background: #f5f8ff; }
+
+.record-row dt {
+  margin: 0; color: #667085;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.record-row dt .req { color: #d92d20; }
+
+.record-row dd {
+  margin: 0; color: #101828;
+  font-size: 14px; font-weight: 500; line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* section band inside the list */
+.record-section {
+  padding: 10px 18px;
+  background: #f2f4f7; border-top: 1px solid #e4e7ec; border-bottom: 1px solid #e4e7ec;
+  color: #344054; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+}
+
+/* ---------- edit mode ---------- */
+.record-edit .record-row { align-items: start; }
+.record-edit .record-row:hover { background: inherit; }
+.record-edit .record-row:nth-child(even) { background: #fff; }
+.record-edit dt { padding-top: 10px; }
+.record-edit dd { font-weight: 400; }
+
+.record-edit dd input:not([type="file"]):not([type="checkbox"]),
+.record-edit dd select {
+  width: 100%; height: 38px; padding: 0 12px;
+  background: #fff; color: #101828; font: inherit; font-size: 14px;
+  border: 1px solid #d0d5dd; border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.record-edit dd input::placeholder { color: #98a2b3; }
+.record-edit dd input:hover,
+.record-edit dd select:hover { border-color: #98a2b3; }
+.record-edit dd input:focus,
+.record-edit dd select:focus {
+  outline: none; border-color: #2e6bf6; box-shadow: 0 0 0 4px rgba(46, 107, 246, .14);
+}
+.record-edit dd input[type="file"] {
+  width: 100%; padding: 7px; font-size: 13px; color: #475467;
+  background: #fafbfc; border: 1px dashed #c4cad4; border-radius: 8px; cursor: pointer;
+}
+.record-edit dd input[type="file"]::file-selector-button {
+  margin-right: 12px; padding: 5px 12px; font: inherit; font-weight: 600;
+  color: #344054; background: #fff; border: 1px solid #d0d5dd; border-radius: 6px; cursor: pointer;
+}
+.record-edit dd input[type="file"]::file-selector-button:hover { background: #f2f4f7; }
+
+.record-stack { display: flex; flex-direction: column; gap: 8px; }
+
+/* status chips used in the card header */
+.holder-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+
+@media (max-width: 720px) {
+  .record-row { grid-template-columns: 1fr; gap: 4px; padding: 12px 14px; }
+  .record-edit dt { padding-top: 0; }
+}
 ====beginv3
 
 /* ---------- Searchable combobox ---------- */
