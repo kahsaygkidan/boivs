@@ -1,7 +1,11 @@
 /* ==========================================================================
-   NewLegalRegistration — all styles
+   NewLegalRegistration.css
+   Complete stylesheet for the NewLegalRegistration wizard
    ========================================================================== */
 
+/* ==========================================================================
+   Design tokens
+   ========================================================================== */
 :root {
   --nlr-bg: #f6f8fb;
   --nlr-surface: #ffffff;
@@ -21,6 +25,7 @@
   --nlr-danger: #dc2626;
   --nlr-danger-soft: #fef2f2;
   --nlr-danger-border: rgba(220, 38, 38, 0.28);
+  --nlr-danger-ring: rgba(220, 38, 38, 0.15);
   --nlr-warn: #d97706;
   --nlr-warn-soft: #fffbeb;
   --nlr-warn-border: rgba(217, 119, 6, 0.25);
@@ -35,7 +40,9 @@
   --nlr-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
 }
 
-/* ---------- Root ---------- */
+/* ==========================================================================
+   Root
+   ========================================================================== */
 .nlr-root {
   font-family: var(--nlr-font);
   background: var(--nlr-bg);
@@ -50,7 +57,9 @@
   margin: 0 auto;
 }
 
-/* ---------- Page header ---------- */
+/* ==========================================================================
+   Page header
+   ========================================================================== */
 .nlr-page-head {
   margin-bottom: 22px;
 }
@@ -59,15 +68,19 @@
   font-weight: 700;
   margin: 0 0 6px;
   letter-spacing: -0.02em;
+  color: var(--nlr-text);
 }
 .nlr-page-head__desc {
   color: var(--nlr-text-muted);
   font-size: 13.5px;
   margin: 0;
   max-width: 620px;
+  line-height: 1.55;
 }
 
-/* ---------- Stepper ---------- */
+/* ==========================================================================
+   Stepper
+   ========================================================================== */
 .nlr-stepper {
   display: flex;
   list-style: none;
@@ -95,6 +108,9 @@
 .nlr-step--clickable {
   cursor: pointer;
 }
+.nlr-step--clickable:hover {
+  background: var(--nlr-surface-alt);
+}
 .nlr-step--active {
   background: var(--nlr-primary-soft);
 }
@@ -110,6 +126,7 @@
   flex-shrink: 0;
   background: #f1f5f9;
   color: var(--nlr-text-faint);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .nlr-step--active .nlr-step__num {
   background: var(--nlr-primary);
@@ -145,7 +162,9 @@
   white-space: nowrap;
 }
 
-/* ---------- Card ---------- */
+/* ==========================================================================
+   Card
+   ========================================================================== */
 .nlr-card {
   background: var(--nlr-surface);
   border: 1px solid var(--nlr-border);
@@ -159,6 +178,7 @@
   font-weight: 650;
   margin: 0 0 4px;
   letter-spacing: -0.01em;
+  color: var(--nlr-text);
 }
 .nlr-hint {
   color: var(--nlr-text-muted);
@@ -167,7 +187,9 @@
   margin: 0 0 14px;
 }
 
-/* ---------- Segmented control ---------- */
+/* ==========================================================================
+   Segmented control
+   ========================================================================== */
 .nlr-segmented {
   display: inline-flex;
   background: #f1f5f9;
@@ -198,7 +220,9 @@
   cursor: not-allowed;
 }
 
-/* ---------- Grids ---------- */
+/* ==========================================================================
+   Grids
+   ========================================================================== */
 .nlr-grid-2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -211,7 +235,9 @@
   margin-bottom: 4px;
 }
 
-/* ---------- Input ---------- */
+/* ==========================================================================
+   Input
+   ========================================================================== */
 .nlr-input {
   width: 100%;
   padding: 9px 12px;
@@ -221,7 +247,7 @@
   border-radius: var(--nlr-radius-sm);
   background: #fff;
   color: var(--nlr-text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   box-sizing: border-box;
 }
 .nlr-input--mono {
@@ -238,27 +264,64 @@
   color: var(--nlr-text-muted);
   cursor: not-allowed;
 }
-.nlr-input--error {
-  border-color: var(--nlr-danger);
-}
-.nlr-input--error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+.nlr-input::placeholder {
+  color: var(--nlr-text-faint);
 }
 
-/* ---------- Field error ---------- */
+/* ==========================================================================
+   Error state — enhanced red
+   ========================================================================== */
+.nlr-input--error {
+  border-color: var(--nlr-danger) !important;
+  background-color: var(--nlr-danger-soft);
+}
+.nlr-input--error:focus {
+  border-color: var(--nlr-danger) !important;
+  box-shadow: 0 0 0 3px var(--nlr-danger-ring) !important;
+  background-color: #fff;
+}
+
+/* Error message */
 .nlr-field-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: var(--nlr-danger);
   font-size: 11.5px;
   margin-top: 4px;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1.4;
+  animation: nlr-fade-in 0.15s ease;
 }
+.nlr-field-error::before {
+  content: "⚠";
+  font-size: 11px;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+/* Hint text */
 .nlr-field-hint {
   color: var(--nlr-text-faint);
   font-size: 11.5px;
   margin-top: 4px;
+  line-height: 1.4;
 }
 
-/* ---------- Nav footer ---------- */
+@keyframes nlr-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   Nav footer
+   ========================================================================== */
 .nlr-nav {
   display: flex;
   justify-content: space-between;
@@ -266,9 +329,12 @@
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--nlr-border);
+  gap: 12px;
 }
 
-/* ---------- Button ---------- */
+/* ==========================================================================
+   Button
+   ========================================================================== */
 .nlr-btn {
   padding: 10px 20px;
   font-size: 13.5px;
@@ -277,8 +343,15 @@
   border-radius: var(--nlr-radius-sm);
   border: none;
   cursor: pointer;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.05s ease;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.nlr-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 .nlr-btn--primary {
   background: var(--nlr-primary);
@@ -292,23 +365,34 @@
   color: var(--nlr-text);
   border: 1px solid var(--nlr-border-strong);
 }
+.nlr-btn--outline:hover:not(:disabled) {
+  border-color: var(--nlr-text-faint);
+  background: var(--nlr-surface-alt);
+}
 .nlr-btn--ghost {
   background: transparent;
   color: var(--nlr-primary);
   border: 1px solid rgba(40, 51, 117, 0.2);
 }
-.nlr-btn--outline:hover:not(:disabled) {
-  border-color: var(--nlr-text-faint);
-}
 .nlr-btn--ghost:hover:not(:disabled) {
   background: var(--nlr-primary-soft);
+  border-color: rgba(40, 51, 117, 0.4);
+}
+.nlr-btn--danger {
+  background: var(--nlr-danger);
+  color: #fff;
+}
+.nlr-btn--danger:hover:not(:disabled) {
+  background: #b91c1c;
 }
 .nlr-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-/* ---------- Banners ---------- */
+/* ==========================================================================
+   Banners
+   ========================================================================== */
 .nlr-banner {
   display: flex;
   align-items: flex-start;
@@ -317,6 +401,7 @@
   border-radius: var(--nlr-radius-sm);
   font-size: 13px;
   margin-bottom: 18px;
+  line-height: 1.5;
 }
 .nlr-banner--error {
   background: var(--nlr-danger-soft);
@@ -336,9 +421,17 @@
 .nlr-banner__icon {
   flex-shrink: 0;
   font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.nlr-banner ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
 }
 
-/* ---------- Holder / control cards ---------- */
+/* ==========================================================================
+   Holder / control cards
+   ========================================================================== */
 .nlr-holder {
   border: 1px solid var(--nlr-border);
   background: var(--nlr-surface-alt);
@@ -362,6 +455,7 @@
   min-width: 180px;
   font-size: 14.5px;
   font-weight: 700;
+  color: var(--nlr-text);
 }
 .nlr-holder__meta {
   font-size: 12px;
@@ -376,6 +470,7 @@
   font-weight: 700;
   line-height: 1;
   color: var(--nlr-primary);
+  font-variant-numeric: tabular-nums;
 }
 .nlr-holder__pct-label {
   font-size: 10.5px;
@@ -395,7 +490,9 @@
   font-family: var(--nlr-mono);
 }
 
-/* ---------- Chips ---------- */
+/* ==========================================================================
+   Chips
+   ========================================================================== */
 .nlr-chip {
   display: inline-flex;
   align-items: center;
@@ -422,7 +519,9 @@
   color: var(--nlr-warn);
 }
 
-/* ---------- Checkbox grid ---------- */
+/* ==========================================================================
+   Checkbox grid
+   ========================================================================== */
 .nlr-checkbox-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -437,14 +536,21 @@
   cursor: pointer;
   padding: 6px;
   border-radius: 6px;
+  transition: background 0.1s ease;
+}
+.nlr-checkbox-item:hover {
+  background: rgba(40, 51, 117, 0.04);
 }
 .nlr-checkbox-item input {
   accent-color: var(--nlr-primary);
   width: 15px;
   height: 15px;
+  cursor: pointer;
 }
 
-/* ---------- Record view / editor (dl grid) ---------- */
+/* ==========================================================================
+   Record view / editor
+   ========================================================================== */
 .nlr-record {
   margin: 0;
   border: 1px solid var(--nlr-border);
@@ -492,9 +598,12 @@
 }
 .nlr-required {
   color: var(--nlr-danger);
+  font-weight: 700;
 }
 
-/* ---------- Toggle ---------- */
+/* ==========================================================================
+   Toggle
+   ========================================================================== */
 .nlr-toggle {
   position: relative;
   width: 40px;
@@ -525,7 +634,9 @@
   left: 20px;
 }
 
-/* ---------- Derived box ---------- */
+/* ==========================================================================
+   Derived box
+   ========================================================================== */
 .nlr-derived {
   background: var(--nlr-surface-alt);
   border: 1px solid var(--nlr-border);
@@ -544,7 +655,9 @@
   color: var(--nlr-text);
 }
 
-/* ---------- Table ---------- */
+/* ==========================================================================
+   Table
+   ========================================================================== */
 .nlr-table {
   border: 1px solid var(--nlr-border);
   border-radius: var(--nlr-radius-sm);
@@ -572,6 +685,7 @@
 .nlr-table td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--nlr-border);
+  vertical-align: middle;
 }
 .nlr-table tbody tr:last-child td {
   border-bottom: none;
@@ -579,6 +693,7 @@
 .nlr-table__mono {
   font-family: var(--nlr-mono);
   font-size: 11.5px;
+  color: var(--nlr-text-muted);
 }
 .nlr-table__hint {
   font-size: 11px;
@@ -586,7 +701,9 @@
   margin-top: 2px;
 }
 
-/* ---------- Confirm checkbox ---------- */
+/* ==========================================================================
+   Confirm checkbox
+   ========================================================================== */
 .nlr-confirm {
   display: flex;
   gap: 10px;
@@ -598,6 +715,10 @@
   cursor: pointer;
   font-size: 13px;
   line-height: 1.5;
+  transition: background 0.1s ease;
+}
+.nlr-confirm:hover {
+  background: rgba(40, 51, 117, 0.1);
 }
 .nlr-confirm input {
   accent-color: var(--nlr-primary);
@@ -605,9 +726,12 @@
   height: 16px;
   margin-top: 2px;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
-/* ---------- Combobox ---------- */
+/* ==========================================================================
+   Combobox
+   ========================================================================== */
 .nlr-combo {
   position: relative;
 }
@@ -626,6 +750,7 @@
   list-style: none;
   max-height: 260px;
   overflow-y: auto;
+  animation: nlr-fade-in 0.1s ease;
 }
 .nlr-combo__item {
   padding: 9px 12px;
@@ -655,7 +780,9 @@
   color: var(--nlr-text-muted);
 }
 
-/* ---------- Misc ---------- */
+/* ==========================================================================
+   Misc utilities
+   ========================================================================== */
 .nlr-spacer {
   display: inline-block;
 }
@@ -675,7 +802,9 @@
   width: 100%;
 }
 
-/* ---------- Natural person filled banner ---------- */
+/* ==========================================================================
+   Auto-filled banner
+   ========================================================================== */
 .nlr-filled-banner {
   display: flex;
   align-items: flex-start;
@@ -687,12 +816,17 @@
   font-size: 12.5px;
   color: var(--nlr-info);
   margin-bottom: 14px;
+  line-height: 1.5;
+  animation: nlr-fade-in 0.2s ease;
 }
 .nlr-filled-banner strong {
   color: var(--nlr-text);
+  font-weight: 700;
 }
 
-/* ---------- Responsive ---------- */
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
 @media (max-width: 640px) {
   .nlr-step__sub {
     display: none;
@@ -712,5 +846,53 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--nlr-text-faint);
+  }
+  .nlr-stepper {
+    flex-direction: column;
+  }
+  .nlr-step {
+    border-right: none;
+    border-bottom: 1px solid var(--nlr-border);
+  }
+  .nlr-step:last-child {
+    border-bottom: none;
+  }
+  .nlr-nav {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .nlr-nav .nlr-btn {
+    width: 100%;
+  }
+  .nlr-grid-2,
+  .nlr-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Print
+   ========================================================================== */
+@media print {
+  .nlr-root {
+    background: #fff;
+    padding: 0;
+  }
+  .nlr-stepper,
+  .nlr-nav,
+  .nlr-segmented {
+    display: none;
+  }
+  .nlr-card {
+    box-shadow: none;
+    border: 1px solid #d1d5db;
+    page-break-inside: avoid;
+  }
+  .nlr-btn {
+    display: none;
+  }
+  @page {
+    margin: 12mm;
+    size: A4;
   }
 }
