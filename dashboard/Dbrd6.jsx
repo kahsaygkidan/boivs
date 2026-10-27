@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
+import {
   listLegalPersons, getOwnershipTree,
 } from '../api/bovsApi.js';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -41,10 +44,18 @@ const T = {
   mono: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
 };
 
-/* Color palette for pie chart slices */
-const SLICE_COLORS = [
-  '#283375', '#3b82f6', '#059669', '#d97706', '#dc2626',
-  '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#475569',
+/* Chart palette — brand-anchored, distinguishable on light bg */
+const CHART_COLORS = [
+  '#283375', // brand navy
+  '#3b82f6', // info blue
+  '#059669', // success green
+  '#d97706', // warn amber
+  '#dc2626', // danger red
+  '#7c3aed', // violet
+  '#0891b2', // cyan
+  '#db2777', // pink
+  '#65a30d', // lime
+  '#9333ea', // purple
 ];
 
 /* ==========================================================================
@@ -66,7 +77,7 @@ const I = {
   filter: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   link: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   equal: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><line x1="5" y1="9" x2="19" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><line x1="5" y1="15" x2="19" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>,
-  pie: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M22 12A10 10 0 0 0 12 2v10z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  chart: <svg {...ic}><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
   printer: <svg {...ic}><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>,
 };
 
@@ -273,20 +284,6 @@ const formatDate = (v) => {
   return y && m && d ? `${d}/${m}/${y}` : v;
 };
 
-/** Pick the most recent entity from a list, using createdAt / updatedAt if present. */
-function pickLatest(entities) {
-  if (!entities || entities.length === 0) return null;
-  const withDate = entities
-    .map((e) => ({ e, t: e.createdAt ? new Date(e.createdAt).getTime() : (e.updatedAt ? new Date(e.updatedAt).getTime() : NaN) }))
-    .filter((x) => Number.isFinite(x.t));
-  if (withDate.length > 0) {
-    withDate.sort((a, b) => b.t - a.t);
-    return withDate[0].e;
-  }
-  // Fallback: last item in the sorted list (assuming sort: 'name' — last alphabetically)
-  return entities[entities.length - 1];
-}
-
 /* ==========================================================================
    Field
    ========================================================================== */
@@ -300,9 +297,160 @@ function Field({ k, v, mono }) {
 }
 
 /* ==========================================================================
-   PIE CHART — ownership distribution for the selected entity
+   Ownership pie chart — donut showing UBO % distribution
    ========================================================================== */
 function OwnershipPieChart({ entity }) {
+  const tree = entity?.tree;
+  const ubos = (tree?.holders || []).filter((h) => h.ubo);
+
+  const chartData = useMemo(() => {
+    const rows = ubos
+      .map((h) => ({
+        name: h.fullName || '—',
+        value: Number(h.effectivePercentage) || 0,
+      }))
+      .filter((r) => r.value > 0)
+      .sort((a, b) => b.value - a.value);
+
+    // Add "Other / unallocated" slice if total < 100 (helps visualize remaining shares)
+    const total = rows.reduce((s, r) => s + r.value, 0);
+    if (total > 0 && total < 100) {
+      rows.push({ name: 'Other / unallocated', value: 100 - total, other: true });
+    }
+    return rows;
+  }, [ubos]);
+
+  const total = chartData.reduce((s, r) => s + r.value, 0);
+
+  if (!tree) {
+    return (
+      <div style={{ padding: '32px 20px', textAlign: 'center', color: T.textMuted, fontSize: 13, background: T.surfaceAlt, borderRadius: T.radiusSm, border: `1px dashed ${T.border}` }}>
+        No ownership data loaded yet.
+      </div>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <div style={{ padding: '32px 20px', textAlign: 'center', color: T.textMuted, fontSize: 13, background: T.surfaceAlt, borderRadius: T.radiusSm, border: `1px dashed ${T.border}` }}>
+        No UBO ownership recorded for this entity.
+      </div>
+    );
+  }
+
+  /* Custom tooltip */
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const item = payload[0];
+    const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+    return (
+      <div style={{
+        background: '#fff',
+        border: `1px solid ${T.border}`,
+        borderRadius: T.radiusSm,
+        padding: '8px 12px',
+        boxShadow: T.shadowMd,
+        fontFamily: T.font,
+        fontSize: 12,
+      }}>
+        <div style={{ fontWeight: 700, color: T.text, marginBottom: 2 }}>{item.name}</div>
+        <div style={{ color: T.textMuted }}>
+          <strong style={{ color: T.primary }}>{item.value}%</strong> effective · {pct}% of total
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ fontFamily: T.font }}>
+      <div style={{ width: '100%', height: 300 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={68}
+              outerRadius={108}
+              paddingAngle={2}
+              stroke="#fff"
+              strokeWidth={2}
+              isAnimationActive
+              animationDuration={600}
+              labelLine={false}
+              label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                if (percent < 0.06) return null; // hide tiny slice labels
+                const RADIAN = Math.PI / 180;
+                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                return (
+                  <text
+                    x={x}
+                    y={y}
+                    fill="#fff"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={11}
+                    fontWeight={700}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {`${(percent * 100).toFixed(0)}%`}
+                  </text>
+                );
+              }}
+            >
+              {chartData.map((entry, i) => (
+                <Cell
+                  key={`cell-${i}`}
+                  fill={entry.other ? '#cbd5e1' : CHART_COLORS[i % CHART_COLORS.length]}
+                />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+            <Legend
+              verticalAlign="bottom"
+              iconType="circle"
+              iconSize={8}
+              wrapperStyle={{ fontSize: 12, paddingTop: 12, fontFamily: T.font }}
+              formatter={(value, entry) => (
+                <span style={{ color: T.textMuted, fontSize: 12 }}>
+                  {value} <strong style={{ color: T.text }}>{entry.payload.value}%</strong>
+                </span>
+              )}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Center label — renders over the donut hole via absolutely positioned overlay */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 6, marginTop: -170, marginBottom: 130, pointerEvents: 'none',
+          flexDirection: 'column', textAlign: 'center',
+        }}
+      >
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.textFaint }}>
+          Total allocated
+        </div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: T.primary, letterSpacing: '-.03em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+          {total}%
+        </div>
+        <div style={{ fontSize: 11, color: T.textMuted }}>
+          {ubos.length} UBO{ubos.length === 1 ? '' : 's'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Ownership summary — bullet context
+   ========================================================================== */
+function OwnershipSummaryCard({ entity }) {
   const tree = entity?.tree;
   if (!tree) return null;
 
@@ -311,97 +459,578 @@ function OwnershipPieChart({ entity }) {
   const controlOnly = holders.filter((h) => !h.ubo && ((h.controlBasis || []).length > 0 || h.qualifiesByControl));
   const fallback = tree.seniorManagingOfficial;
 
-  // Build slice data — each UBO's effective %, then control-only "no ownership" (0%),
-  // then fallback (0%) as informational-only slices.
-  const slices = [];
+  const bullets = [];
+  const seenEdge = new Set();
+
   ubos.forEach((h) => {
-    const pct = Number(h.effectivePercentage ?? 0);
-    if (pct > 0) slices.push({ name: h.fullName, pct, kind: 'ubo', holder: h });
-  });
-  controlOnly.forEach((h) => {
-    slices.push({ name: h.fullName, pct: 0, kind: 'control', holder: h });
-  });
-  if (fallback) {
-    slices.push({ name: fallback.name, pct: 0, kind: 'fallback', fallback });
-  }
-
-  const totalPct = slices.reduce((s, x) => s + x.pct, 0);
-  const hasOwnership = totalPct > 0;
-
-  // SVG geometry
-  const SIZE = 220;
-  const CX = SIZE / 2;
-  const CY = SIZE / 2;
-  const R = 92;
-  const STROKE = 22; // donut thickness — set to 0 for solid pie; here we use donut
-  const r = R - STROKE / 2;
-
-  // Build arcs
-  const arcs = [];
-  if (hasOwnership) {
-    let angleStart = -Math.PI / 2; // start at 12 o'clock
-    slices.forEach((s, i) => {
-      if (s.pct <= 0) return;
-      const angle = (s.pct / totalPct) * Math.PI * 2;
-      const angleEnd = angleStart + angle;
-      const largeArc = angle > Math.PI ? 1 : 0;
-      const x1 = CX + r * Math.cos(angleStart);
-      const y1 = CY + r * Math.sin(angleStart);
-      const x2 = CX + r * Math.cos(angleEnd);
-      const y2 = CY + r * Math.sin(angleEnd);
-      const path = [
-        `M ${CX} ${CY}`,
-        `L ${x1} ${y1}`,
-        `A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`,
-        'Z',
-      ].join(' ');
-      arcs.push({ ...s, path, color: SLICE_COLORS[i % SLICE_COLORS.length], displayPct: s.pct });
-      angleStart = angleEnd;
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      for (let i = 0; i < parts.length - 1; i++) {
+        const from = parts[i];
+        const to = parts[i + 1];
+        const key = `${from}→${to}`;
+        if (seenEdge.has(key)) continue;
+        seenEdge.add(key);
+        bullets.push(`${from} → …% owned by ${to}`);
+      }
     });
+  });
+
+  ubos.forEach((h) => {
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      const eff = Number(h.effectivePercentage ?? p.percentage);
+      const isDirect = parts.length === 2;
+      if (isDirect) {
+        bullets.push(`${h.fullName}'s direct interest = ${eff}%`);
+      } else {
+        const left = Array.from({ length: parts.length - 1 }).map((_, i) => `hop${i + 1}%`).join(' × ');
+        bullets.push(`${h.fullName}'s indirect interest = ${left} = ${eff}%`);
+      }
+    });
+  });
+
+  controlOnly.forEach((h) => {
+    const basis = (h.controlBasis || []).join(', ');
+    bullets.push(`${h.fullName} — control via ${basis || 'other means'} (no ownership)`);
+  });
+
+  if (fallback) {
+    bullets.push(`Senior managing official fallback: ${fallback.name}${fallback.position ? ` (${fallback.position})` : ''}`);
   }
 
-  // Donut hole (for center label)
-  const centerLabel = hasOwnership
-    ? `${slices.length}`
-    : '0';
-  const centerSub = hasOwnership
-    ? (slices.length === 1 ? 'holder' : 'holders')
-    : 'holders';
+  if (bullets.length === 0) return null;
 
   return (
     <div style={{
-      background: T.surface,
-      border: `1px solid ${T.border}`,
-      borderRadius: T.radius,
-      boxShadow: T.shadow,
-      padding: 18,
-      marginBottom: 16,
+      background: `linear-gradient(135deg, ${T.infoSoft}, #fff)`,
+      border: `1px solid ${T.infoBorder}`,
+      borderLeft: `4px solid ${T.info}`,
+      borderRadius: T.radius, padding: 16, marginBottom: 16, boxShadow: T.shadow,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <span style={{ display: 'inline-flex', color: T.primary }}>{I.pie}</span>
-        <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: T.textMuted }}>
-          Ownership distribution
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ display: 'inline-flex', color: T.info }}>{I.link}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: T.info }}>
+          Ownership chain summary — {entity.name}
         </span>
-        {hasOwnership && (
-          <span style={{ marginLeft: 'auto', fontSize: 11.5, color: T.textFaint, fontWeight: 500 }}>
-            {totalPct}% total · {slices.length} holder{slices.length === 1 ? '' : 's'}
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {bullets.map((b, i) => (
+          <li key={i} style={{ fontSize: 13, lineHeight: 1.55, color: T.text, fontFamily: T.font }}>
+            {b}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Chain trace per person
+   ========================================================================== */
+function ChainTraceBlock({ holder }) {
+  const traceRows = (holder.paths || []).map((p) => {
+    const steps = splitChain(p.chain);
+    const effective = Number(holder.effectivePercentage ?? p.percentage);
+    return { chain: steps, effective };
+  });
+  if (traceRows.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 12, padding: 12, background: T.infoSoft, border: `1px solid ${T.infoBorder}`, borderRadius: T.radiusSm }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <span style={{ display: 'inline-flex', color: T.info }}>{I.link}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: T.info }}>
+          Ownership chain trace
+        </span>
+      </div>
+      {traceRows.map((row, rowIdx) => {
+        const { chain, effective } = row;
+        const isDirect = chain.length === 2;
+        const hops = chain.length - 1;
+        return (
+          <div key={rowIdx} style={{ marginTop: rowIdx > 0 ? 12 : 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {chain.slice(0, -1).map((from, i) => {
+                const to = chain[i + 1];
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12.5 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: 4, background: i === 0 ? T.info : i === chain.length - 2 ? T.success : T.primary, color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ color: T.text, fontWeight: 500 }}>{from}</span>
+                    <span style={{ display: 'inline-flex', color: T.textFaint }}>{I.arrow}</span>
+                    <span style={{ color: T.text, fontWeight: 600 }}>{to}</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 11, fontWeight: 500, color: T.textMuted }}>
+                      {isDirect ? 'direct' : `hop ${i + 1}/${hops}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: isDirect ? T.successSoft : T.primarySoft, border: `1px solid ${isDirect ? T.successBorder : `${T.primary}44`}`, borderRadius: T.radiusSm, flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', color: isDirect ? T.success : T.primary }}>{I.equal}</span>
+              <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 500 }}>{isDirect ? 'Direct interest' : 'Effective indirect interest'}</span>
+              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 18, fontWeight: 800, color: isDirect ? T.success : T.primary, fontVariantNumeric: 'tabular-nums', letterSpacing: '-.02em' }}>{effective}%</span>
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: isDirect ? T.success : T.primary, textTransform: 'uppercase', letterSpacing: '.05em' }}>effective</span>
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Detail cards
+   ========================================================================== */
+function EntityDetailCard({ entity }) {
+  return (
+    <div style={{ padding: 16, borderRadius: T.radius, background: `linear-gradient(135deg, ${T.primarySoft}, #fff)`, border: `1px solid ${T.primary}33`, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+      <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 10, background: '#fff', color: T.primary, flexShrink: 0, boxShadow: '0 1px 3px rgba(40,51,117,.15)' }}>{I.building}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: T.text, letterSpacing: '-.01em' }}>{entity.name}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#fff', color: T.primary, border: `1px solid ${T.primary}33`, letterSpacing: '.04em', textTransform: 'uppercase' }}>Legal entity</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px 18px', marginTop: 10 }}>
+          <Field k="Registration" v={entity.registrationNumber || '—'} mono />
+          <Field k="Entity type" v={entity.entityType || '—'} />
+          <Field k="Country" v={entity.countryOfIncorporation || '—'} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IntermediateDetailCard({ name, holderKeys }) {
+  return (
+    <div style={{ padding: 14, borderRadius: T.radiusSm, background: '#fff', border: `1px solid ${T.border}`, display: 'flex', gap: 12, alignItems: 'flex-start', boxShadow: T.shadow }}>
+      <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 8, background: T.primarySoft, color: T.primary, flexShrink: 0 }}>{I.building}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: T.text }}>{name}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#f1f5f9', color: T.textMuted, letterSpacing: '.04em', textTransform: 'uppercase' }}>Intermediate</span>
+        </div>
+        <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 4 }}>
+          {holderKeys.size} beneficial owner{holderKeys.size === 1 ? '' : 's'} downstream
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonDetailCard({ holder, kind = 'ubo' }) {
+  return (
+    <div style={{ padding: 14, borderRadius: T.radiusSm, background: T.surface, border: `1px solid ${T.border}`, boxShadow: T.shadow, transition: 'border-color .15s ease, box-shadow .15s ease' }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.primary + '55'; e.currentTarget.style.boxShadow = T.shadowMd; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.boxShadow = T.shadow; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: '#eef1f7', color: T.textMuted, flexShrink: 0 }}>{I.person}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: T.text }}>{holder.fullName || '—'}</span>
+        {kind === 'ubo' && <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: T.successSoft, color: T.success, letterSpacing: '.04em', textTransform: 'uppercase' }}>UBO</span>}
+        {kind === 'control' && <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: T.primarySoft, color: T.primary, letterSpacing: '.04em', textTransform: 'uppercase' }}>Control</span>}
+        {holder.pep && <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: T.warnSoft, color: T.warn, letterSpacing: '.04em', textTransform: 'uppercase' }}>PEP</span>}
+        {holder.status && <StatusBadge status={holder.status} />}
+        {holder.effectivePercentage != null && (
+          <span style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 700, color: T.text, fontVariantNumeric: 'tabular-nums' }}>{holder.effectivePercentage}%</span>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px 20px', marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${T.border}` }}>
+        <Field k="Full name" v={holder.fullName || '—'} />
+        <Field k="Gender" v={formatGender(holder.gender)} />
+        <Field k="Nationality" v={holder.nationality || '—'} />
+        <Field k="Place of birth" v={holder.placeOfBirth || '—'} />
+        <Field k="Date of birth" v={formatDate(holder.dateOfBirth)} />
+        <Field k="Fayda number" v={holder.idNumber || '—'} mono />
+        <Field k="Phone" v={holder.phoneNumber || '—'} mono />
+        <Field k="Email" v={holder.emailAddress || '—'} />
+        <Field k="Occupation" v={holder.occupation || '—'} />
+        <Field k="Residential address" v={holder.residentialAddress || '—'} />
+        <Field k="Date became BO" v={formatDate(holder.dateBecameBo)} />
+        {holder.controlBasis?.length > 0 && <Field k="Control basis" v={holder.controlBasis.join(', ')} />}
+      </div>
+      <ChainTraceBlock holder={holder} />
+    </div>
+  );
+}
+
+function FallbackDetailCard({ fallback }) {
+  return (
+    <div style={{ padding: 14, borderRadius: T.radiusSm, background: `linear-gradient(135deg, ${T.warnSoft}, #fff)`, border: `1px solid ${T.warnBorder}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: '#fff', color: T.warn, flexShrink: 0 }}>{I.person}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: T.text }}>{fallback.name}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#fff', color: T.warn, border: `1px solid ${T.warnBorder}`, letterSpacing: '.04em', textTransform: 'uppercase' }}>Fallback</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px 20px', marginTop: 10 }}>
+        <Field k="Position" v={fallback.position || '—'} />
+        <Field k="Justification" v={fallback.justification || '—'} />
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Ownership structure block
+   ========================================================================== */
+function OwnershipStructure({ entity }) {
+  const tree = entity.tree;
+  if (!tree) {
+    return (
+      <div style={{ padding: '32px 20px', textAlign: 'center', color: T.textMuted, fontSize: 13, background: T.surfaceAlt, borderRadius: T.radiusSm, border: `1px dashed ${T.border}` }}>
+        No ownership structure loaded for this entity.
+      </div>
+    );
+  }
+
+  const ubos = (tree.holders || []).filter((h) => h.ubo);
+  const controlOnly = (tree.holders || []).filter((h) => !h.ubo && ((h.controlBasis || []).length > 0 || h.qualifiesByControl));
+  const fallback = tree.seniorManagingOfficial;
+
+  const parentOf = (h) => {
+    for (const p of (h.paths || [])) {
+      const parts = splitChain(p.chain);
+      if (parts.length > 2) return parts[parts.length - 2];
+    }
+    return null;
+  };
+
+  const intermediateSet = new Map();
+  tree.holders.forEach((h) => {
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      for (let i = 1; i < parts.length - 1; i++) {
+        const name = parts[i];
+        if (!name) continue;
+        if (!intermediateSet.has(name)) intermediateSet.set(name, { name, holderKeys: new Set() });
+        intermediateSet.get(name).holderKeys.add(h.key);
+      }
+    });
+  });
+
+  const buckets = new Map();
+  const direct = { ubos: [], control: [] };
+
+  ubos.forEach((h) => {
+    const parent = parentOf(h);
+    if (parent) {
+      if (!buckets.has(parent)) buckets.set(parent, { ubos: [], control: [] });
+      buckets.get(parent).ubos.push(h);
+    } else {
+      direct.ubos.push(h);
+    }
+  });
+  controlOnly.forEach((h) => {
+    const parent = parentOf(h);
+    if (parent) {
+      if (!buckets.has(parent)) buckets.set(parent, { ubos: [], control: [] });
+      buckets.get(parent).control.push(h);
+    } else {
+      direct.control.push(h);
+    }
+  });
+
+  const bucketEntries = Array.from(buckets.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <EntityDetailCard entity={entity} />
+
+      {bucketEntries.map(([name, group]) => {
+        const target = intermediateSet.get(name);
+        return (
+          <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <IntermediateDetailCard name={name} holderKeys={target?.holderKeys || new Set()} />
+            {group.ubos.map((h) => <PersonDetailCard key={h.key} holder={h} kind="ubo" />)}
+            {group.control.map((h) => <PersonDetailCard key={h.key} holder={h} kind="control" />)}
+          </div>
+        );
+      })}
+
+      {direct.ubos.length > 0 && (
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 10 }}>
+            Direct holders ({direct.ubos.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {direct.ubos.map((h) => <PersonDetailCard key={h.key} holder={h} kind="ubo" />)}
+            {direct.control.map((h) => <PersonDetailCard key={h.key} holder={h} kind="control" />)}
+          </div>
+        </div>
+      )}
+
+      {fallback && (
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 10 }}>
+            Senior managing official (fallback)
+          </div>
+          <FallbackDetailCard fallback={fallback} />
+        </div>
+      )}
+
+      {ubos.length === 0 && controlOnly.length === 0 && !fallback && (
+        <div style={{ padding: '32px 20px', textAlign: 'center', color: T.textMuted, fontSize: 12.5, background: T.surfaceAlt, borderRadius: T.radiusSm, border: `1px dashed ${T.border}` }}>
+          No holders recorded yet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Print CSS
+   ========================================================================== */
+const PRINT_CSS = `
+  @media print {
+    body * { visibility: hidden; }
+    .dashboard-printable, .dashboard-printable * { visibility: visible; }
+    .dashboard-printable { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+    .dashboard-no-print { display: none !important; }
+    .dashboard-printable { font-size: 11px; }
+    .dashboard-printable tr { page-break-inside: avoid; }
+    .dashboard-printable h1 { font-size: 18px !important; }
+    @page { margin: 12mm; size: A4; }
+  }
+`;
+
+/* ==========================================================================
+   Dashboard
+   ========================================================================== */
+export default function Dashboard({ onRegister, canRegister }) {
+  const [legalPersons, setLegalPersons] = useState([]);
+  const [trees, setTrees] = useState({});
+  const [entityId, setEntityId] = useState('');
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingTree, setLoadingTree] = useState(false);
+  const [error, setError] = useState(null);
+
+  /* Load legal persons + auto-select latest */
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingList(true);
+    listLegalPersons({ size: 500, sort: 'createdAt,desc' })
+      .then((listRes) => {
+        if (cancelled) return;
+        const list = listRes.content || [];
+        setLegalPersons(list);
+        // Auto-select the latest entity — first in descending createdAt order
+        if (list.length > 0 && !entityId) {
+          setEntityId(list[0].id);
+        }
+        setError(null);
+      })
+      .catch((err) => !cancelled && setError(err.friendlyMessage || 'Failed to load dashboard'))
+      .finally(() => !cancelled && setLoadingList(false));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Lazy load tree for the selected entity */
+  useEffect(() => {
+    if (!entityId) return;
+    if (trees[entityId]) return;
+    let cancelled = false;
+    setLoadingTree(true);
+    getOwnershipTree(entityId)
+      .then((t) => { if (!cancelled) setTrees((prev) => ({ ...prev, [entityId]: t })); })
+      .catch((err) => { if (!cancelled) setError(err.friendlyMessage || 'Failed to load ownership structure'); })
+      .finally(() => { if (!cancelled) setLoadingTree(false); });
+    return () => { cancelled = true; };
+  }, [entityId, trees]);
+
+  const entities = useMemo(
+    () => legalPersons.map((lp) => {
+      const tree = trees[lp.id];
+      const holders = tree?.holders || [];
+      const ubos = holders.filter((h) => h.ubo);
+      return {
+        id: lp.id,
+        name: lp.name,
+        registrationNumber: lp.registrationNumber,
+        entityType: lp.entityType,
+        countryOfIncorporation: lp.countryOfIncorporation,
+        createdAt: lp.createdAt,
+        uboCount: ubos.length,
+        fallback: tree?.seniorManagingOfficial || null,
+        tree,
+      };
+    }),
+    [legalPersons, trees],
+  );
+
+  const selectedEntity = entities.find((e) => e.id === entityId) || null;
+
+  /* KPIs */
+  const totals = useMemo(() => {
+    const loaded = entities.filter((e) => e.tree);
+    const totalUbos = loaded.reduce((s, e) => s + e.uboCount, 0);
+    const verified = loaded.reduce(
+      (s, e) => s + (e.tree?.holders || []).filter((h) => h.ubo && (h.status === 'VERIFIED' || h.status === 'APPROVED' || h.registered)).length,
+      0,
+    );
+    const pending = loaded.reduce(
+      (s, e) => s + (e.tree?.holders || []).filter((h) => h.ubo && h.status === 'PENDING').length,
+      0,
+    );
+    return { totalUbos, verified, pending };
+  }, [entities]);
+
+  return (
+    <div style={{ fontFamily: T.font, color: T.text }}>
+      <style>{PRINT_CSS}</style>
+
+      {/* ==================== Header ==================== */}
+      <div className="dashboard-no-print" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-.025em', color: T.text }}>Overview</h1>
+            {entityId && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', fontSize: 10.5, fontWeight: 700, color: T.primary, background: T.primarySoft, borderRadius: 12, letterSpacing: '.05em', textTransform: 'uppercase' }}>
+                {I.filter} Filtered
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: T.textMuted }}>
+            Beneficial ownership by legal entity — full chain trace
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          {entityId && (
+            <Btn variant="secondary" icon={I.printer} onClick={() => window.print()}>Print</Btn>
+          )}
+          {canRegister && (
+            <button
+              type="button"
+              onClick={onRegister}
+              onMouseEnter={(e) => { e.currentTarget.style.background = T.primaryHover; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = T.primary; }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, padding: '0 18px',
+                fontSize: 13, fontWeight: 600, fontFamily: 'inherit', color: '#fff', background: T.primary,
+                border: 'none', borderRadius: T.radiusSm, cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(40,51,117,.20)', transition: 'background .15s ease', whiteSpace: 'nowrap',
+              }}
+            >
+              <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+              New record
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px', marginBottom: 16, background: T.dangerSoft, color: T.danger, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, fontSize: 13 }}>
+          <span style={{ flexShrink: 0, marginTop: 1 }}>{I.alert}</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* ==================== KPI grid ==================== */}
+      <div className="dashboard-printable" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 20 }}>
+        <Kpi label="Legal entities" value={entities.length} tone="neutral" icon={I.building} loading={loadingList} caption="Registered customers" />
+        <Kpi label="Total UBOs" value={totals.totalUbos} tone="neutral" icon={I.users} loading={loadingTree && !selectedEntity} caption={selectedEntity ? 'In selected entity' : 'Across loaded entities'} />
+        <Kpi label="Verified" value={totals.verified} tone="success" icon={I.check} loading={loadingTree && !selectedEntity} caption="Approved by checker" />
+        <Kpi label="Pending" value={totals.pending} tone="warn" icon={I.clock} loading={loadingTree && !selectedEntity} caption="Awaiting approval" />
+      </div>
+
+      {/* ==================== Filter ==================== */}
+      <div className="dashboard-no-print" style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadow, padding: 16, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.textMuted }}>
+            {I.filter} Filter by legal entity
           </span>
+          <span style={{ flex: 1, height: 1, background: T.border }} />
+          {entityId && (
+            <Btn variant="ghost" size="sm" icon={I.x} onClick={() => setEntityId('')}>Clear</Btn>
+          )}
+        </div>
+
+        <EntityCombobox
+          options={entities.map((e) => ({ value: e.id, label: e.name, sub: e.registrationNumber }))}
+          value={entityId}
+          onChange={setEntityId}
+          loading={loadingList}
+          placeholder="Search by legal name or registration number…"
+        />
+
+        {selectedEntity && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.textMuted, flexWrap: 'wrap' }}>
+            <span>Showing structure for</span>
+            <strong style={{ color: T.text }}>{selectedEntity.name}</strong>
+            {selectedEntity.registrationNumber && (
+              <span style={{ fontFamily: T.mono, fontSize: 11 }}>· {selectedEntity.registrationNumber}</span>
+            )}
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.success }} />
+              <span style={{ fontWeight: 600, color: T.success }}>{selectedEntity.uboCount} UBO{selectedEntity.uboCount === 1 ? '' : 's'}</span>
+            </span>
+          </div>
         )}
       </div>
 
-      {!hasOwnership ? (
-        <div style={{ padding: '32px 20px', textAlign: 'center', color: T.textMuted, fontSize: 12.5 }}>
-          No beneficial owners with ownership percentage recorded for this entity.
+      {/* ==================== Empty state ==================== */}
+      {!entityId && (
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadow, padding: '60px 20px', textAlign: 'center' }}>
+          <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 14, background: T.primarySoft, color: T.primary, marginBottom: 14 }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01" />
+            </svg>
+          </span>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 4 }}>Select a legal entity</div>
+          <div style={{ fontSize: 12.5, color: T.textMuted }}>
+            Choose an entity above to view its ownership chart, chain, intermediates, UBOs, and any fallback.
+          </div>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center' }}>
-          {/* Donut chart */}
-          <div style={{ position: 'relative', width: SIZE, height: SIZE, flexShrink: 0 }}>
-            <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Ownership distribution chart">
-              <defs>
-                <filter id="pieShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#0f172a" floodOpacity="0.12" />
-                </filter>
-              </defs>
+      )}
 
-              {/*
+      {/* ==================== Entity detail ==================== */}
+      {entityId && (
+        <div className="dashboard-printable">
+          {/* Ownership pie chart */}
+          {selectedEntity?.tree && (
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadow, padding: 18, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ display: 'inline-flex', color: T.primary }}>{I.chart}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: T.textMuted }}>
+                  Ownership distribution — {selectedEntity.name}
+                </span>
+              </div>
+              <OwnershipPieChart entity={selectedEntity} />
+            </div>
+          )}
+
+          {/* Summary bullets */}
+          {selectedEntity?.tree && (
+            <OwnershipSummaryCard entity={selectedEntity} />
+          )}
+
+          {/* Full structure */}
+          <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadow, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: `1px solid ${T.border}`, background: T.surfaceAlt }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: T.text, margin: 0 }}>Ownership structure</h3>
+              <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>
+                Full chain trace with effective ownership calculation
+              </div>
+            </div>
+            <div style={{ padding: 18 }}>
+              {loadingTree && !selectedEntity?.tree ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: T.textMuted, fontSize: 13 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span aria-hidden="true" style={{ display: 'inline-block', width: 14, height: 14, border: `2px solid ${T.border}`, borderTopColor: T.primary, borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+                    Loading ownership structure…
+                  </span>
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </div>
+              ) : selectedEntity ? (
+                <OwnershipStructure entity={selectedEntity} />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
