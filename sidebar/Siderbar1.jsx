@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import dashenlogo from '../assets/dashenlogo.png';
 import { NavIcons } from './Icons.jsx';
 
@@ -5,12 +6,12 @@ import { NavIcons } from './Icons.jsx';
    Design tokens
    ========================================================================== */
 const T = {
-  sidebarBg: '#0b1220',           // deep navy — banking/trust feel
+  sidebarBg: '#0b1220',
   sidebarBorder: '#1e293b',
   textPrimary: '#e2e8f0',
   textMuted: '#64748b',
   textFaint: '#475569',
-  brandAccent: '#3b82f6',          // Dashen-ish blue
+  brandAccent: '#3b82f6',
   brandAccentSoft: 'rgba(59,130,246,.12)',
   activeBg: 'rgba(59,130,246,.14)',
   activeText: '#ffffff',
@@ -33,10 +34,10 @@ const NAV_ITEMS = [
 ];
 
 /* ==========================================================================
-   NavItem component (hover via local state)
+   NavItem
    ========================================================================== */
 function NavItem({ item, active, onClick }) {
-  const [hover, setHover] = React.useState(false);
+  const [hover, setHover] = useState(false);
 
   return (
     <button
@@ -66,7 +67,6 @@ function NavItem({ item, active, onClick }) {
         transition: 'background .15s ease, color .15s ease',
       }}
     >
-      {/* Active accent bar */}
       {active && (
         <span
           aria-hidden="true"
@@ -155,7 +155,7 @@ export default function Sidebar({ activeView, onNavigate, roles }) {
             height: 34,
             width: 'auto',
             objectFit: 'contain',
-            filter: 'brightness(0) invert(1)', // keep logo legible on dark bg
+            filter: 'brightness(0) invert(1)',
             opacity: 0.95,
           }}
         />
