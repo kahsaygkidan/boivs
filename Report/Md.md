@@ -1,5 +1,4 @@
 
-npm i xlsx jspdf jspdf-autotable
 
 make sure includede these 'The Reporting System shall generate reports for internal management, Compliance, KYC/CDD and audit purposes, including BO summary, and audit trails.		
 1.		The Reporting system shall identify and generate reports for Share Companies based on the applicable beneficial ownership criteria, including 10% or more direct or indirect ownership, individually or jointly; preferential shares; convertible equity debt of 10% or more; and control through other means.		The Reporting Portal shall also apply the 5% threshold for specified sectors, including mining, real estate development, motor vehicle dealership, import and export, and other sectors determined by the relevant Directive.
