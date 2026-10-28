@@ -20,4 +20,19 @@ The System shall maintain confidentiality of beneficial ownership information an
 '
 
 
+=========threshod banner====
+
+Legal Person Type	Threshold / Criteria	Notes / Exceptions
+Share Company	≥10% direct/indirect ownership (individual or joint); preferential shares; ≥10% convertible equity debt; control through other means.	5% for mining, real estate development, motor vehicle dealership, import/export, and other Directive-specified sectors.
+Private Limited Company	≥5% direct/indirect ownership (individual or joint); control-through-other-means.	—
+One Member PLC	Owner + applicable general manager/other controlling person.	Single-BO-plus-manager pattern (FR-05).
+General Partnership	25%: profit entitlement, assets on dissolution, voting rights, qualifying third-party beneficial interests; + control provisions.	—
+Limited Partnership (General & Limited Partners)	25%: profit distribution, assets on dissolution, voting rights; + control rights.	—
+Limited Liability Partnership	25%: profit or asset interest; + control-through-other-means.	—
+Public Private Partnership	25% share/asset criterion.	—
+Financial Institution	≥2% direct/indirect ownership (individual or joint) or ≥2% convertible equity debt; + control provisions.	—
+Foreign-established legal person	Country of registration captured; BO info supported by home-jurisdiction documentation/attestation/authentication.	—
+
+
+
 Sector</label><select id="lp-sector" onchange="updateThresholdPreview()"><option value="OTHER">Other</option><option value="MINING">Mining</option><option value="REAL_ESTATE">Real Estate</option><option value="MOTOR_DEALERSHIP">Motor Dealership</option><option value="IMPORT_EXPORT">Import/Export</option><option value="FINANCIAL">Financial</option></select></div>
