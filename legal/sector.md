@@ -1,0 +1,1 @@
+Sector</label><select id="lp-sector" onchange="updateThresholdPreview()"><option value="OTHER">Other</option><option value="MINING">Mining</option><option value="REAL_ESTATE">Real Estate</option><option value="MOTOR_DEALERSHIP">Motor Dealership</option><option value="IMPORT_EXPORT">Import/Export</option><option value="FINANCIAL">Financial</option></select></div>
