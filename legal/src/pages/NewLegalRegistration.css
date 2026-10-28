@@ -58,6 +58,74 @@
 }
 
 /* ==========================================================================
+   Threshold banner
+   ========================================================================== */
+.nlr-threshold {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--nlr-radius-sm);
+  margin: 14px 0;
+  line-height: 1.5;
+  animation: nlr-fade-in 0.15s ease;
+}
+.nlr-threshold--info {
+  background: var(--nlr-info-soft);
+  border: 1px solid var(--nlr-info-border);
+  border-left: 4px solid var(--nlr-info);
+}
+.nlr-threshold--warn {
+  background: var(--nlr-warn-soft);
+  border: 1px solid var(--nlr-warn-border);
+  border-left: 4px solid var(--nlr-warn);
+}
+.nlr-threshold__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.nlr-threshold__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  background: #fff;
+  color: var(--nlr-primary);
+  border: 1px solid var(--nlr-primary);
+}
+.nlr-threshold--warn .nlr-threshold__badge {
+  color: var(--nlr-warn);
+  border-color: var(--nlr-warn);
+}
+.nlr-threshold__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nlr-text);
+}
+.nlr-threshold__body {
+  font-size: 12.5px;
+  color: var(--nlr-text);
+  line-height: 1.55;
+}
+.nlr-threshold__note {
+  font-size: 11.5px;
+  color: var(--nlr-text-muted);
+  padding-top: 6px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.12);
+  line-height: 1.5;
+}
+.nlr-threshold__note strong {
+  color: var(--nlr-text);
+  font-weight: 700;
+}
+
+/* ==========================================================================
    Page header
    ========================================================================== */
 .nlr-page-head {
