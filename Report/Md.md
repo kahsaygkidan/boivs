@@ -10,5 +10,9 @@ make sure includede these 'The Reporting System shall generate reports for inter
 7.		The Reporting system shall identify and generate reports for Financial Institutions based on the applicable beneficial ownership criteria, including 2% or more direct or indirect ownership, individually or jointly, or convertible equity debt of 2% or more, together with applicable control provisions.		
 8.		The Reporting system shall generate detailed beneficial ownership reports showing direct, indirect, joint and combined ownership across multiple ownership layers.		
 9.		The Reporting system shall generate data-quality and exception reports identifying missing, incomplete, inaccurate, contradictory or circular ownership information, duplicate records, invalid or expired documents, inconsistent ownership percentages and other data-quality exceptions.		
+10.		The Reporting system shall support reporting of complex and multi-layer domestic and foreign ownership and control structures, including parent/subsidiary relationships, cross-ownership, intermediate entities and other complex control arrangements.		
+11.		The Reporting system shall generate visual and detailed ownership/control reports, including tree-based diagrams showing legal entities, natural persons, ownership percentages, voting rights, control relationships and ownership layers.		
+12.		Reports shall be exportable to PDF, Excel, CSV and Word, with appropriate filtering, sorting and access controls.		All export activities shall be recorded in the audit trail.
+ns.		
 '
 in report mdule
