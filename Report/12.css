@@ -1,0 +1,76 @@
+/* ==========================================================================
+   Modern tab underline (animated by framer-motion layout)
+   ========================================================================== */
+.rep-tabs {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--rep-border, #E5E7EB);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.rep-tab {
+  position: relative;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rep-text-muted, #64748B);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s;
+}
+.rep-tab:hover { color: var(--rep-text, #0F172A); }
+.rep-tab--active { color: var(--rep-primary, #4F46E5); font-weight: 600; }
+
+/* Sticky filter bar */
+.rep-filter-card {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--rep-surface, #fff) 88%, transparent);
+}
+
+/* Exception row — colored left bar */
+.rep-exception {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--rep-surface, #fff);
+  border: 1px solid var(--rep-border, #E5E7EB);
+  border-left-width: 4px;
+}
+.rep-exception--danger { border-left-color: #EF4444; background: #FEF2F2; }
+.rep-exception--warn   { border-left-color: #F59E0B; background: #FFFBEB; }
+.rep-exception--info   { border-left-color: #3B82F6; background: #EFF6FF; }
+
+/* Combo icon */
+.rep-combo { position: relative; }
+.rep-combo__icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--rep-text-muted);
+  pointer-events: none;
+}
+.rep-input--combo { padding-left: 30px; }
+
+/* ==========================================================================
+   Print — hide chrome, force monochrome
+   ========================================================================== */
+@media print {
+  .rep-no-print,
+  .rep-tabs,
+  .rep-filter-card,
+  .rep-export-bar,
+  .rep-header__actions {
+    display: none !important;
+  }
+  body { background: #fff !important; }
+  .rep-card { box-shadow: none !important; border: 1px solid #D1D5DB !important; break-inside: avoid; }
+  .rep-kpi { box-shadow: none !important; border: 1px solid #D1D5DB !important; }
+  .rep-tab-indicator { display: none; }
+}
