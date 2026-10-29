@@ -1,304 +1,1042 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, AreaChart, Area,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  AreaChart, Area,
 } from 'recharts';
-import { listLegalPersons, getOwnershipTree, listAuditLogs } from '../api/bovsApi.js';
+import {
+  Building2, Users, CheckCircle2, Clock, AlertTriangle, TrendingUp, TrendingDown,
+  Search, X, Filter, Printer, Link2, PieChart as PieIcon, GitBranch, Plus,
+} from 'lucide-react';
+import { listLegalPersons, getOwnershipTree } from '../api/bovsApi.js';
+import StatusBadge from '../components/StatusBadge.jsx';
+import './Dashboard.css';
 
-/* ---------- Domain rules (same as Reports.jsx; move to a shared util) ---------- */
-const HIGH_RISK = new Set(['MINING', 'REAL_ESTATE', 'MOTOR_DEALERSHIP', 'IMPORT_EXPORT']);
-const getThreshold = (type, sector) => {
-  switch (type) {
-    case 'SHARE_COMPANY': return HIGH_RISK.has(sector) ? 5 : 10;
-    case 'PRIVATE_LIMITED_COMPANY': return 5;
-    case 'FINANCIAL_INSTITUTION': return 2;
-    case 'GENERAL_PARTNERSHIP': case 'LIMITED_PARTNERSHIP':
-    case 'LIMITED_LIABILITY_PARTNERSHIP': case 'PPP': return 25;
-    default: return null;
-  }
+/* ==========================================================================
+   Helpers
+   ========================================================================== */
+const splitChain = (chain) =>
+  String(chain || '').split(/\s*→\s*/).map((x) => x.trim()).filter(Boolean);
+
+const formatGender = (g) => {
+  if (!g) return '—';
+  const s = String(g).toUpperCase();
+  if (s === 'M' || s === 'MALE') return 'Male';
+  if (s === 'F' || s === 'FEMALE') return 'Female';
+  return g;
 };
-const splitChain = (c) => String(c || '').split(/\s*→\s*/).map((x) => x.trim()).filter(Boolean);
-const isDirect = (h) => (h.paths || []).every((p) => splitChain(p.chain).length === 2);
-const isVerified = (h) => h.status === 'VERIFIED' || h.status === 'APPROVED' || h.registered;
-const pretty = (s) => String(s || 'Other').toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
-const C = { navy: '#1b2559', blue: '#283375', sky: '#5b78d6', mist: '#c9d3f2', ok: '#1f8a5b', warn: '#d98e04', bad: '#c0392b', ink: '#1a1f36', muted: '#6b7390' };
 
-/* ---------- Per-entity analysis ---------- */
-function analyse(lp, tree) {
-  const all = tree?.holders || [];
-  const ubos = all.filter((h) => h.ubo);
-  const th = getThreshold(lp.entityType, lp.sector);
-  const issues = [];
-  const add = (sev, text) => issues.push({ sev, text });
-  if (!tree) add('bad', 'Ownership structure could not be loaded');
-  else if (ubos.length === 0 && !tree.seniorManagingOfficial) add('bad', 'No UBO and no senior-official fallback');
-  const now = new Date(); const in90 = new Date(Date.now() + 90 * 864e5);
-  all.forEach((h) => {
-    if (!h.idNumber) add('warn', `${h.fullName}: missing ID number`);
-    if (h.dateOfExpiry) {
-      const d = new Date(h.dateOfExpiry);
-      if (d < now) add('bad', `${h.fullName}: ID expired`);
-      else if (d < in90) add('warn', `${h.fullName}: ID expires within 90 days`);
-    }
-    if (h.qualifiesByControl && !(h.controlBasis || []).length) add('warn', `${h.fullName}: control basis missing`);
-  });
-  const total = ubos.reduce((s, h) => s + Number(h.effectivePercentage || 0), 0);
-  if (total > 100.01) add('bad', `Ownership totals ${total.toFixed(1)}%`);
-  if (th != null) ubos.forEach((h) => { if (Number(h.effectivePercentage) < th) add('warn', `${h.fullName}: ${h.effectivePercentage}% is below ${th}%`); });
-  const hops = ubos.flatMap((h) => (h.paths || []).map((p) => splitChain(p.chain).length - 1));
-  const layers = Math.max(0, ...hops) - 1;
-  return {
-    id: lp.id, name: lp.name, reg: lp.registrationNumber, type: lp.entityType, sector: lp.sector,
-    ubos, all, layers: Math.max(layers, 0), issues, loaded: !!tree,
-    score: issues.reduce((s, i) => s + (i.sev === 'bad' ? 3 : 1), 0),
-    fallback: !!tree?.seniorManagingOfficial,
-  };
+const formatDate = (v) => {
+  if (!v) return '—';
+  const [y, m, d] = String(v).split('-');
+  return y && m && d ? `${d}/${m}/${y}` : v;
+};
+
+const isDirectHolder = (holder) => {
+  const paths = holder.paths || [];
+  if (paths.length === 0) return true;
+  return paths.every((p) => splitChain(p.chain).length === 2);
+};
+
+const SECTOR_LABELS = {
+  OTHER: 'Other', MINING: 'Mining', REAL_ESTATE: 'Real Estate',
+  MOTOR_DEALERSHIP: 'Motor Dealership', IMPORT_EXPORT: 'Import / Export',
+  FINANCIAL: 'Financial',
+};
+
+/* Count-up hook for KPI values */
+function useCountUp(target, duration = 650) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (target == null) { setVal(0); return; }
+    const start = performance.now();
+    const from = 0;
+    const to = Number(target);
+    let raf;
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(from + (to - from) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return val;
 }
 
-/* ---------- UI bits ---------- */
-function Card({ title, note, children, span = 1 }) {
+/* ==========================================================================
+   Button
+   ========================================================================== */
+function Btn({ variant = 'primary', size = 'md', icon, children, ...props }) {
+  const cls = ['dash-btn', `dash-btn--${variant}`, `dash-btn--${size}`].join(' ');
   return (
-    <section className="bi-card" style={{ gridColumn: `span ${span}` }}>
-      <header><h3>{title}</h3>{note && <p>{note}</p>}</header>
+    <button type="button" className={cls} {...props}>
+      {icon && <span style={{ display: 'inline-flex', flexShrink: 0 }}>{icon}</span>}
       {children}
-    </section>
+    </button>
   );
 }
-function Kpi({ label, value, hint, tone }) {
-  return (
-    <div className={`bi-kpi${tone ? ` bi-kpi--${tone}` : ''}`}>
-      <span>{label}</span><b>{value}</b><em>{hint}</em>
-    </div>
-  );
-}
-function PieCard({ title, note, data, span }) {
-  const total = data.reduce((s, x) => s + x.value, 0);
-  return (
-    <Card title={title} note={note} span={span}>
-      {total ? (
-        <>
-          <div style={{ height: 200 }}><ResponsiveContainer><PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
-              {data.map((s) => <Cell key={s.name} fill={s.c} />)}
-            </Pie><Tooltip {...tip} />
-          </PieChart></ResponsiveContainer></div>
-          <ul className="bi-legend">{data.map((s) => <li key={s.name}><i style={{ background: s.c }} />{s.name} <b>{s.value}</b> ({Math.round((s.value / total) * 100)}%)</li>)}</ul>
-        </>
-      ) : <Empty>No data for the current filters.</Empty>}
-    </Card>
-  );
-}
-const Empty = ({ children }) => <div className="bi-empty">{children}</div>;
-const tip = { contentStyle: { border: `1px solid ${C.mist}`, borderRadius: 6, fontSize: 12 } };
 
-/* ---------- Dashboard ---------- */
-export default function InsightsDashboard({ onOpen }) {
-  const [lps, setLps] = useState([]);
-  const [trees, setTrees] = useState({});
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [type, setType] = useState('');
-  const [sector, setSector] = useState('');
+/* ==========================================================================
+   KPI tile (modern, with count-up + sparkline + delta)
+   ========================================================================== */
+const KPI_TONE = {
+  neutral: { accent: '#64748B', bg: '#F1F5F9' },
+  success: { accent: '#10B981', bg: '#ECFDF5' },
+  warn:    { accent: '#F59E0B', bg: '#FFFBEB' },
+  danger:  { accent: '#EF4444', bg: '#FEF2F2' },
+  info:    { accent: '#3B82F6', bg: '#EFF6FF' },
+};
+
+function ModernKpi({ label, value, tone = 'neutral', icon: Icon, caption, delta, spark, loading }) {
+  const t = KPI_TONE[tone];
+  const counted = useCountUp(loading ? 0 : value);
+  const up = delta != null && delta >= 0;
+  const gradientId = `spark-${label.replace(/\s+/g, '-')}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="kpi-card"
+      style={{ '--accent': t.accent, '--tone-bg': t.bg }}
+    >
+      <div className="kpi-card__head">
+        <span className="kpi-card__icon">{Icon && <Icon size={16} />}</span>
+        <span className="kpi-card__label">{label}</span>
+      </div>
+      <div className="kpi-card__row">
+        <span className="kpi-card__value">{loading ? '—' : (value == null ? '—' : counted)}</span>
+        {delta != null && (
+          <span className={`kpi-card__delta ${up ? 'is-up' : 'is-down'}`}>
+            {up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            {Math.abs(delta)}%
+          </span>
+        )}
+      </div>
+      {caption && <div className="kpi-card__caption">{caption}</div>}
+      {spark?.length > 0 && (
+        <div className="kpi-card__spark">
+          <ResponsiveContainer width="100%" height={36}>
+            <AreaChart data={spark}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={t.accent} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={t.accent} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area dataKey="v" stroke={t.accent} strokeWidth={2} fill={`url(#${gradientId})`} isAnimationActive />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+/* ==========================================================================
+   Searchable entity combobox
+   ========================================================================== */
+function EntityCombobox({ options, value, onChange, placeholder = 'Search entity…', loading }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [hi, setHi] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const ref = useRef(null);
+  const selected = options.find((o) => o.value === value);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => `${o.label} ${o.sub || ''}`.toLowerCase().includes(q));
+  }, [options, query]);
 
   useEffect(() => {
-    let off = false;
-    listLegalPersons({ size: 500, sort: 'name' })
-      .then(async (res) => {
-        const list = res.content || [];
-        if (off) return;
-        setLps(list);
-        const pairs = await Promise.all(list.map((lp) => getOwnershipTree(lp.id).then((t) => [lp.id, t]).catch(() => [lp.id, null])));
-        if (!off) setTrees(Object.fromEntries(pairs));
-      })
-      .catch((e) => !off && setError(e.friendlyMessage || 'Could not load dashboard data'))
-      .finally(() => !off && setLoading(false));
-    listAuditLogs({ size: 8 }).then((r) => !off && setLogs(r.content || [])).catch(() => {});
-    return () => { off = true; };
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const all = useMemo(() => lps.map((lp) => analyse(lp, trees[lp.id])), [lps, trees]);
-  const rows = useMemo(() => all.filter((e) => (!type || e.type === type) && (!sector || e.sector === sector)), [all, type, sector]);
+  useEffect(() => { setHi(0); }, [query]);
 
-  const d = useMemo(() => {
-    const holders = rows.flatMap((e) => e.ubos);
-    const verified = holders.filter(isVerified).length;
-    const pending = holders.filter((h) => h.status === 'PENDING').length;
-    const count = (arr, f) => Object.entries(arr.reduce((m, x) => { const k = f(x); m[k] = (m[k] || 0) + 1; return m; }, {}));
-    const buckets = [['< 5%', 0, 5], ['5–10%', 5, 10], ['10–25%', 10, 25], ['25–50%', 25, 50], ['50%+', 50, 101]]
-      .map(([name, lo, hi]) => ({ name, value: holders.filter((h) => Number(h.effectivePercentage) >= lo && Number(h.effectivePercentage) < hi).length }));
-    const months = {};
-    holders.forEach((h) => { const m = String(h.dateBecameBo || '').slice(0, 7); if (m) months[m] = (months[m] || 0) + 1; });
-    let run = 0;
-    const growth = Object.keys(months).sort().map((m) => ({ month: m, added: months[m], total: (run += months[m]) }));
-    const issues = rows.flatMap((e) => e.issues.map((i) => ({ ...i, entity: e })));
-    return {
-      holders, verified, pending, growth, buckets, issues,
-      rate: holders.length ? Math.round((verified / holders.length) * 100) : 0,
-      types: count(rows, (e) => pretty(e.type)).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
-      sectors: count(rows, (e) => e.sector || 'OTHER').map(([k, value], i) => ({ name: pretty(k), value, c: HIGH_RISK.has(k) ? [C.bad, C.warn][i % 2] : [C.blue, C.sky, '#8f9ccf', C.navy, C.mist][i % 5] })),
-      kind: [
-        { name: 'Direct owners', value: holders.filter(isDirect).length, c: C.ok },
-        { name: 'Indirect owners', value: holders.filter((h) => !isDirect(h)).length, c: C.blue },
-      ].filter((x) => x.value > 0),
-      pepSplit: [
-        { name: 'PEP', value: holders.filter((h) => h.pep).length, c: C.bad },
-        { name: 'Non-PEP', value: holders.filter((h) => !h.pep).length, c: C.mist },
-      ].filter((x) => x.value > 0),
-      depth: [0, 1, 2, 3].map((n) => ({ name: n === 3 ? '3+ layers' : n === 0 ? 'Direct' : `${n} layer${n > 1 ? 's' : ''}`, value: rows.filter((e) => (n === 3 ? e.layers >= 3 : e.layers === n)).length })),
-      status: [{ name: 'Verified', value: verified, c: C.ok }, { name: 'Pending', value: pending, c: C.warn }, { name: 'Other', value: holders.length - verified - pending, c: C.mist }].filter((s) => s.value > 0),
-      risky: [...rows].filter((e) => e.score > 0).sort((a, b) => b.score - a.score).slice(0, 8),
-      pep: holders.filter((h) => h.pep).length,
-      foreign: rows.filter((e) => e.type === 'FOREIGN_LEGAL_PERSON').length,
-    };
-  }, [rows]);
-
-  const exportCsv = () => {
-    const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = d.issues.map((i) => [i.sev, i.entity.name, i.text].map(q).join(','));
-    const blob = new Blob(['\uFEFFSeverity,Entity,Finding\n' + lines.join('\n')], { type: 'text/csv' });
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `bo-findings-${new Date().toISOString().slice(0, 10)}.csv` });
-    a.click(); URL.revokeObjectURL(a.href);
+  const pick = (o) => { onChange(o.value); setOpen(false); setQuery(''); };
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setHi((i) => Math.min(i + 1, filtered.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((i) => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter' && open && filtered[hi]) { e.preventDefault(); pick(filtered[hi]); }
+    else if (e.key === 'Escape') { setOpen(false); setQuery(''); }
   };
 
-  const types = [...new Set(all.map((e) => e.type).filter(Boolean))];
-  const sectors = [...new Set(all.map((e) => e.sector).filter(Boolean))];
-  const crit = d.issues.filter((i) => i.sev === 'bad').length;
+  const displayValue = open ? query : (selected ? `${selected.label}${selected.sub ? ` — ${selected.sub}` : ''}` : '');
+  const hasValue = Boolean(selected) || open;
 
   return (
-    <div className="bi">
-      <style>{CSS}</style>
-      <header className="bi-head">
-        <div>
-          <h1>Beneficial ownership insights</h1>
-          <p>Portfolio health, concentration, data quality and recent activity across all legal entities.</p>
-        </div>
-        <div className="bi-tools">
-          <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Entity type">
-            <option value="">All entity types</option>{types.map((t) => <option key={t} value={t}>{pretty(t)}</option>)}
-          </select>
-          <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sector">
-            <option value="">All sectors</option>{sectors.map((t) => <option key={t} value={t}>{pretty(t)}</option>)}
-          </select>
-          <button type="button" onClick={exportCsv} disabled={!d.issues.length}>Export findings</button>
-        </div>
-      </header>
+    <label className="dash-combo">
+      <span className="dash-combo__label">Legal entity</span>
+      <div className="dash-combo__wrap" ref={ref}>
+        <span className="dash-combo__icon"><Search size={14} /></span>
+        <input
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          disabled={loading}
+          value={displayValue}
+          placeholder={loading ? 'Loading entities…' : placeholder}
+          onFocus={() => { setFocused(true); setOpen(true); }}
+          onBlur={() => setFocused(false)}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onKeyDown={onKeyDown}
+          className={`dash-combo__input${hasValue ? ' dash-combo__input--has-value' : ''}${focused ? ' dash-combo__input--focused' : ''}`}
+        />
+        {open && (
+          <ul className="dash-combo__list" role="listbox">
+            {filtered.length === 0 && <li className="dash-combo__empty">No entity found</li>}
+            {filtered.map((o, i) => (
+              <li
+                key={o.value}
+                role="option"
+                aria-selected={o.value === value}
+                onMouseEnter={() => setHi(i)}
+                onMouseDown={(e) => { e.preventDefault(); pick(o); }}
+                className={`dash-combo__item${i === hi ? ' dash-combo__item--hi' : ''}${o.value === value ? ' dash-combo__item--selected' : ''}`}
+              >
+                <span>{o.label}</span>
+                {o.sub && <span className="dash-combo__sub">{o.sub}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </label>
+  );
+}
 
-      {error && <div className="bi-error" role="alert">{error}</div>}
+/* ==========================================================================
+   Field
+   ========================================================================== */
+function Field({ k, v, mono }) {
+  return (
+    <div>
+      <div className="dash-field__label">{k}</div>
+      <div className={`dash-field__value${mono ? ' dash-field__value--mono' : ''}`}>{v}</div>
+    </div>
+  );
+}
 
-      <div className="bi-kpis">
-        <Kpi label="Legal entities" value={loading ? '…' : rows.length} hint={`${rows.filter((e) => e.fallback).length} on fallback`} />
-        <Kpi label="Beneficial owners" value={d.holders.length} hint={`${d.pep} PEP · ${d.foreign} foreign entities`} />
-        <Kpi label="Verified" value={`${d.rate}%`} hint={`${d.verified} approved by checker`} tone="ok" />
-        <Kpi label="Pending approval" value={d.pending} hint="Waiting in checker queue" tone="warn" />
-        <Kpi label="Critical findings" value={crit} hint={`${d.issues.length - crit} warnings`} tone={crit ? 'bad' : 'ok'} />
+/* ==========================================================================
+   Ownership summary
+   ========================================================================== */
+function OwnershipSummaryCard({ entity }) {
+  const tree = entity?.tree;
+  if (!tree) return null;
+
+  const ubos = (tree.holders || []).filter((h) => h.ubo);
+  const controlOnly = (tree.holders || []).filter(
+    (h) => !h.ubo && ((h.controlBasis || []).length > 0 || h.qualifiesByControl),
+  );
+  const fallback = tree.seniorManagingOfficial;
+
+  const edgesByParent = new Map();
+  ubos.forEach((h) => {
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      const apiSteps = Array.isArray(p.steps) && p.steps.length ? p.steps : null;
+      if (apiSteps) {
+        apiSteps.forEach((s) => {
+          if (!edgesByParent.has(s.from)) edgesByParent.set(s.from, []);
+          const bucket = edgesByParent.get(s.from);
+          if (!bucket.find((x) => x.to === s.to)) bucket.push({ to: s.to, pct: s.pct });
+        });
+      } else {
+        for (let i = 0; i < parts.length - 1; i++) {
+          const from = parts[i];
+          const to = parts[i + 1];
+          if (!edgesByParent.has(from)) edgesByParent.set(from, []);
+          const bucket = edgesByParent.get(from);
+          if (!bucket.find((x) => x.to === to)) bucket.push({ to, pct: null });
+        }
+      }
+    });
+  });
+
+  const bullets = [];
+  edgesByParent.forEach((children, parent) => {
+    const list = children
+      .map((c) => (c.pct != null ? `${c.pct}% owned by ${c.to}` : `…% owned by ${c.to}`))
+      .join(' and ');
+    bullets.push(`${parent} → ${list}`);
+  });
+
+  ubos.forEach((h) => {
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      const eff = Number(h.effectivePercentage ?? p.percentage);
+      const isDirect = parts.length === 2;
+      const apiSteps = Array.isArray(p.steps) && p.steps.length ? p.steps : null;
+      if (isDirect) bullets.push(`${h.fullName}'s direct interest = ${eff}%`);
+      else {
+        const left = apiSteps
+          ? apiSteps.map((s) => `${s.pct}%`).join(' × ')
+          : Array.from({ length: parts.length - 1 }).map((_, i) => `hop${i + 1}%`).join(' × ');
+        bullets.push(`${h.fullName}'s indirect interest = ${left} = ${eff}%`);
+      }
+    });
+  });
+
+  controlOnly.forEach((h) =>
+    bullets.push(`${h.fullName} — control via ${(h.controlBasis || []).join(', ') || 'other means'} (no ownership)`),
+  );
+  if (fallback) bullets.push(`Senior managing official fallback: ${fallback.name}${fallback.position ? ` (${fallback.position})` : ''}`);
+
+  if (bullets.length === 0) return null;
+
+  return (
+    <div className="dash-summary">
+      <div className="dash-summary__head">
+        <span className="dash-summary__head-icon"><Link2 size={12} /></span>
+        <span className="dash-summary__title">Ownership chain summary — {entity.name}</span>
+      </div>
+      <ul className="dash-summary__list">
+        {bullets.map((b, i) => <li key={i} className="dash-summary__item">{b}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Pie chart
+   ========================================================================== */
+const COLORS = { direct: '#059669', indirect: '#2563eb', other: '#cbd5e1' };
+
+function OwnershipPieChart({ entity }) {
+  const tree = entity?.tree;
+  const ubos = (tree?.holders || []).filter((h) => h.ubo);
+
+  const chartData = useMemo(() => {
+    let directTotal = 0, indirectTotal = 0;
+    const directHolders = [], indirectHolders = [];
+    ubos.forEach((h) => {
+      const pct = Number(h.effectivePercentage) || 0;
+      if (pct <= 0) return;
+      if (isDirectHolder(h)) { directTotal += pct; directHolders.push({ name: h.fullName, pct }); }
+      else { indirectTotal += pct; indirectHolders.push({ name: h.fullName, pct }); }
+    });
+    const slices = [];
+    if (directTotal > 0) slices.push({ name: `Direct (${directHolders.length})`, value: directTotal, kind: 'direct', holders: directHolders });
+    if (indirectTotal > 0) slices.push({ name: `Indirect (${indirectHolders.length})`, value: indirectTotal, kind: 'indirect', holders: indirectHolders });
+    const total = directTotal + indirectTotal;
+    if (total > 0 && total < 100) slices.push({ name: 'Other', value: 100 - total, kind: 'other' });
+    return slices;
+  }, [ubos]);
+
+  const total = chartData.reduce((s, r) => s + r.value, 0);
+  const directSlice = chartData.find((r) => r.kind === 'direct');
+  const indirectSlice = chartData.find((r) => r.kind === 'indirect');
+
+  const verifiedCount = ubos.filter((h) => ['VERIFIED', 'APPROVED'].includes(h.status) || h.registered).length;
+  const pendingCount = ubos.filter((h) => h.status === 'PENDING').length;
+
+  if (!tree) return (
+    <div className="dash-empty-inline">No ownership data loaded yet.</div>
+  );
+  if (chartData.length === 0) return (
+    <div className="dash-empty-inline">No UBO ownership recorded.</div>
+  );
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const item = payload[0];
+    const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+    return (
+      <div className="dash-pie-tooltip">
+        <div className="dash-pie-tooltip__title">{item.name}</div>
+        <div className="dash-pie-tooltip__meta">
+          <strong style={{ color: item.payload.kind === 'direct' ? COLORS.direct : item.payload.kind === 'indirect' ? COLORS.indirect : 'var(--dash-text-muted)' }}>
+            {item.value}%
+          </strong>{' '}· {pct}% of total
+        </div>
+        {item.payload.holders && item.payload.holders.length > 0 && (
+          <div className="dash-pie-tooltip__list">
+            {item.payload.holders.map((h, i) => (
+              <div key={i} className="dash-pie-tooltip__row">
+                <span className="dash-pie-tooltip__name">{h.name}</span>
+                <strong className="dash-pie-tooltip__pct">{h.pct}%</strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="dash-pie-layout">
+      <div className="dash-pie-chart">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={68}
+              outerRadius={104}
+              paddingAngle={3}
+              cornerRadius={6}
+              stroke="var(--dash-surface, #fff)"
+              strokeWidth={3}
+              isAnimationActive
+              animationDuration={700}
+              labelLine={false}
+              label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                if (percent < 0.06) return null;
+                const RADIAN = Math.PI / 180;
+                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                return (
+                  <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700} style={{ pointerEvents: 'none' }}>
+                    {`${(percent * 100).toFixed(0)}%`}
+                  </text>
+                );
+              }}
+            >
+              {chartData.map((entry, i) => <Cell key={`cell-${i}`} fill={COLORS[entry.kind] || COLORS.other} />)}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="dash-pie-center">
+          <div className="dash-pie-center__label">Allocated</div>
+          <div className="dash-pie-center__value">{total}%</div>
+          <div className="dash-pie-center__sub">{ubos.length} UBO{ubos.length === 1 ? '' : 's'}</div>
+          <div className="dash-pie-center__pills">
+            <span className="pill pill--success">{verifiedCount} ✓</span>
+            <span className="pill pill--warn">{pendingCount} ⏳</span>
+          </div>
+        </div>
       </div>
 
-      <div className="bi-grid">
-        <Card title="Verification status" note="Share of beneficial owners by approval state">
-          {d.status.length ? (
-            <div style={{ height: 220 }}><ResponsiveContainer><PieChart>
-              <Pie data={d.status} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
-                {d.status.map((s) => <Cell key={s.name} fill={s.c} />)}
-              </Pie><Tooltip {...tip} />
-            </PieChart></ResponsiveContainer></div>
-          ) : <Empty>No owners recorded yet.</Empty>}
-          <ul className="bi-legend">{d.status.map((s) => <li key={s.name}><i style={{ background: s.c }} />{s.name} <b>{s.value}</b></li>)}</ul>
-        </Card>
-
-        <Card title="Ownership concentration" note="Effective interest held by each owner" span={2}>
-          <div style={{ height: 240 }}><ResponsiveContainer><BarChart data={d.buckets}>
-            <CartesianGrid vertical={false} stroke="#e6eaf6" /><XAxis dataKey="name" tickLine={false} fontSize={12} />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} /><Tooltip {...tip} />
-            <Bar dataKey="value" name="Owners" fill={C.blue} radius={[4, 4, 0, 0]} />
-          </BarChart></ResponsiveContainer></div>
-        </Card>
-
-        <PieCard title="Direct vs indirect" note="How owners hold their interest" data={d.kind} />
-
-        <Card title="Entities by type" span={2}>
-          {d.types.length ? (
-            <div style={{ height: Math.max(200, d.types.length * 34) }}><ResponsiveContainer><BarChart data={d.types} layout="vertical" margin={{ left: 40 }}>
-              <XAxis type="number" allowDecimals={false} hide /><YAxis type="category" dataKey="name" width={170} tickLine={false} axisLine={false} fontSize={12} />
-              <Tooltip {...tip} /><Bar dataKey="value" name="Entities" fill={C.sky} radius={[0, 4, 4, 0]} />
-            </BarChart></ResponsiveContainer></div>
-          ) : <Empty>No entities match the filters.</Empty>}
-        </Card>
-
-        <Card title="Structure depth" note="Intermediate layers between entity and owner">
-          <div style={{ height: 220 }}><ResponsiveContainer><BarChart data={d.depth}>
-            <XAxis dataKey="name" tickLine={false} fontSize={11} /><YAxis hide allowDecimals={false} /><Tooltip {...tip} />
-            <Bar dataKey="value" name="Entities" fill={C.navy} radius={[4, 4, 0, 0]} />
-          </BarChart></ResponsiveContainer></div>
-        </Card>
-
-        <PieCard title="Sector mix" note="Red and amber slices are high-risk sectors" data={d.sectors} />
-
-        <Card title="Owner growth" note="Owners by date they became beneficial owner" span={3}>
-          {d.growth.length > 1 ? (
-            <div style={{ height: 230 }}><ResponsiveContainer><AreaChart data={d.growth}>
-              <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={C.sky} stopOpacity=".45" /><stop offset="1" stopColor={C.sky} stopOpacity="0" /></linearGradient></defs>
-              <CartesianGrid vertical={false} stroke="#e6eaf6" /><XAxis dataKey="month" tickLine={false} fontSize={11} />
-              <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} /><Tooltip {...tip} />
-              <Area dataKey="total" name="Cumulative owners" stroke={C.blue} fill="url(#bg)" strokeWidth={2} />
-            </AreaChart></ResponsiveContainer></div>
-          ) : <Empty>Not enough dated records to show a trend.</Empty>}
-        </Card>
-
-        <PieCard title="PEP exposure" note="Politically exposed owners" data={d.pepSplit} />
-
-        <Card title="Needs attention" note="Entities ranked by severity of findings" span={2}>
-          {d.risky.length ? (
-            <table className="bi-table"><tbody>
-              {d.risky.map((e) => (
-                <tr key={e.id} onClick={() => onOpen?.(e.id)} tabIndex={0} onKeyDown={(ev) => ev.key === 'Enter' && onOpen?.(e.id)}>
-                  <td><b>{e.name}</b><small>{e.reg || '—'}</small></td>
-                  <td>{e.issues.slice(0, 2).map((i, k) => <div key={k} className={`bi-dot bi-dot--${i.sev}`}>{i.text}</div>)}{e.issues.length > 2 && <small>+{e.issues.length - 2} more</small>}</td>
-                  <td className="bi-num">{e.score}</td>
-                </tr>
-              ))}
-            </tbody></table>
-          ) : <Empty>{loading ? 'Analysing entities…' : 'No findings. All checks passed.'}</Empty>}
-        </Card>
-
-        <Card title="Recent activity" note="Latest audit entries" span={2}>
-          {logs.length ? (
-            <ul className="bi-feed">{logs.map((l) => (
-              <li key={l.id}><b>{l.action}</b><span>{l.actorUsername || 'system'}</span><time>{String(l.createdAt || '').replace('T', ' ').slice(0, 16)}</time></li>
-            ))}</ul>
-          ) : <Empty>No audit entries yet.</Empty>}
-        </Card>
+      <div className="dash-pie-legend">
+        {directSlice && (
+          <div className="dash-pie-legend__card dash-pie-legend__card--direct">
+            <div className="dash-pie-legend__row">
+              <span className="dash-pie-legend__swatch dash-pie-legend__swatch--direct" />
+              <span className="dash-pie-legend__label dash-pie-legend__label--direct">Direct</span>
+            </div>
+            <div className="dash-pie-legend__value">{directSlice.value}%</div>
+            <div className="dash-pie-legend__names">{directSlice.holders.map((h) => h.name).join(', ')}</div>
+          </div>
+        )}
+        {indirectSlice && (
+          <div className="dash-pie-legend__card dash-pie-legend__card--indirect">
+            <div className="dash-pie-legend__row">
+              <span className="dash-pie-legend__swatch dash-pie-legend__swatch--indirect" />
+              <span className="dash-pie-legend__label dash-pie-legend__label--indirect">Indirect</span>
+            </div>
+            <div className="dash-pie-legend__value">{indirectSlice.value}%</div>
+            <div className="dash-pie-legend__names">{indirectSlice.holders.map((h) => h.name).join(', ')}</div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-const CSS = `
-.bi{--ink:${C.ink};--muted:${C.muted};font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;color:var(--ink);padding:24px;max-width:1280px;margin:0 auto}
-.bi h1{font-size:24px;margin:0 0 4px;color:${C.navy}} .bi-head p{margin:0;color:var(--muted);font-size:14px;max-width:60ch}
-.bi-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
-.bi-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
-.bi-tools select,.bi-tools button{height:36px;padding:0 12px;border:1px solid ${C.mist};border-radius:6px;background:#fff;font:inherit;font-size:13px}
-.bi-tools button{background:${C.blue};color:#fff;border-color:${C.blue};cursor:pointer} .bi-tools button:disabled{opacity:.5;cursor:default}
-.bi :focus-visible{outline:2px solid ${C.sky};outline-offset:2px}
-.bi-error{background:#fdecea;color:${C.bad};padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:14px}
-.bi-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
-.bi-kpi{background:${C.navy};color:#fff;border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:2px}
-.bi-kpi span{font-size:13px;opacity:.8} .bi-kpi b{font-size:32px;font-weight:600;line-height:1.15} .bi-kpi em{font-style:normal;font-size:12px;opacity:.7}
-.bi-kpi--ok b{color:#7fe0b0} .bi-kpi--warn b{color:#ffcf70} .bi-kpi--bad b{color:#ff9d92}
-.bi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.bi-card{background:#fff;border:1px solid #dde3f5;border-radius:10px;padding:18px;min-width:0}
-.bi-card header{margin-bottom:12px} .bi-card h3{margin:0;font-size:15px;color:${C.navy}} .bi-card header p{margin:2px 0 0;font-size:12px;color:var(--muted)}
-.bi-legend{list-style:none;padding:0;margin:8px 0 0;display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
-.bi-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
-.bi-empty{padding:28px 8px;text-align:center;color:var(--muted);font-size:13px}
-.bi-table{width:100%;border-collapse:collapse;font-size:13px} .bi-table td{padding:9px 6px;border-top:1px solid #edf0fa;vertical-align:top}
-.bi-table tr{cursor:pointer} .bi-table tr:hover{background:#f4f6fd} .bi-table small{display:block;color:var(--muted);font-size:11px}
-.bi-num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
-.bi-dot{padding-left:12px;position:relative;margin-bottom:2px} .bi-dot:before{content:'';position:absolute;left:0;top:6px;width:6px;height:6px;border-radius:50%}
-.bi-dot--bad:before{background:${C.bad}} .bi-dot--warn:before{background:${C.warn}}
-.bi-feed{list-style:none;margin:0;padding:0;font-size:13px} .bi-feed li{display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:8px 0;border-top:1px solid #edf0fa}
-.bi-feed span,.bi-feed time{color:var(--muted);font-size:12px}
-@media(max-width:1000px){.bi-grid{grid-template-columns:repeat(2,1fr)} .bi-card{grid-column:span 2!important}}
-@media(max-width:600px){.bi{padding:14px} .bi-grid{grid-template-columns:1fr} .bi-card{grid-column:span 1!important}}
-`;
+/* ==========================================================================
+   UBO status stacked bar
+   ========================================================================== */
+function UboStatusChart({ entities }) {
+  const data = useMemo(
+    () => entities.filter((e) => e.tree).map((e) => {
+      const hs = (e.tree.holders || []).filter((h) => h.ubo);
+      return {
+        name: e.name.length > 18 ? e.name.slice(0, 17) + '…' : e.name,
+        Verified: hs.filter((h) => ['VERIFIED', 'APPROVED'].includes(h.status) || h.registered).length,
+        Pending: hs.filter((h) => h.status === 'PENDING').length,
+        Rejected: hs.filter((h) => h.status === 'REJECTED').length,
+      };
+    }),
+    [entities],
+  );
+
+  if (data.length === 0) return <div className="dash-empty-inline">No UBOs loaded.</div>;
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: -12 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} interval={0} angle={-15} dy={8} height={50} />
+        <YAxis tick={{ fontSize: 11, fill: '#64748B' }} allowDecimals={false} />
+        <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }} />
+        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="Verified" stackId="a" fill="#10B981" />
+        <Bar dataKey="Pending" stackId="a" fill="#F59E0B" />
+        <Bar dataKey="Rejected" stackId="a" fill="#EF4444" radius={[6, 6, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ==========================================================================
+   Sector radar
+   ========================================================================== */
+function SectorRadar({ entities }) {
+  const data = useMemo(() => {
+    const counts = {};
+    entities.forEach((e) => {
+      const s = SECTOR_LABELS[e.sector] || 'Other';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return Object.entries(counts).map(([sector, v]) => ({ sector, v }));
+  }, [entities]);
+
+  if (data.length === 0) return <div className="dash-empty-inline">No sector data.</div>;
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <RadarChart data={data} outerRadius="72%">
+        <PolarGrid stroke="#E5E7EB" />
+        <PolarAngleAxis dataKey="sector" tick={{ fontSize: 11, fill: '#475569' }} />
+        <PolarRadiusAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
+        <Radar dataKey="v" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.25} strokeWidth={2} isAnimationActive />
+      </RadarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ==========================================================================
+   Tree diagram (unchanged structure, modernized icons)
+   ========================================================================== */
+function TreeNodeBox({ kind, label, sub, holder }) {
+  let cls = 'dash-tree-node';
+  if (kind === 'entity') cls += ' dash-tree-node--entity';
+  else if (kind === 'intermediate') cls += ' dash-tree-node--intermediate';
+  else if (kind === 'fallback') cls += ' dash-tree-node--fallback';
+  else if (kind === 'ubo') cls += holder && isDirectHolder(holder) ? ' dash-tree-node--ubo-direct' : ' dash-tree-node--ubo-indirect';
+  return (
+    <div className={cls}>
+      <span className="dash-tree-node__icon">
+        {kind === 'ubo' || kind === 'fallback' ? <Users size={14} /> : <Building2 size={14} />}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="dash-tree-node__label">{label}</div>
+        <div className="dash-tree-node__sub">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function OwnershipTreeDiagram({ entity }) {
+  const tree = entity.tree;
+  if (!tree) return <div className="dash-empty-inline">No structure loaded.</div>;
+
+  const ubos = (tree.holders || []).filter((h) => h.ubo);
+  const controlOnly = (tree.holders || []).filter(
+    (h) => !h.ubo && ((h.controlBasis || []).length > 0 || h.qualifiesByControl),
+  );
+  const fallback = tree.seniorManagingOfficial;
+  const allHolders = [...ubos, ...controlOnly];
+
+  const intermediateMap = new Map();
+  allHolders.forEach((h) => {
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      for (let i = 1; i < parts.length - 1; i++) {
+        const name = parts[i];
+        if (!intermediateMap.has(name)) intermediateMap.set(name, { name, parent: null });
+      }
+    });
+  });
+  allHolders.forEach((h) => {
+    (h.paths || []).forEach((p) => {
+      const parts = splitChain(p.chain);
+      for (let i = 1; i < parts.length - 1; i++) {
+        const name = parts[i];
+        if (i > 1) {
+          const parentName = parts[i - 1];
+          if (intermediateMap.has(parentName)) intermediateMap.get(name).parent = parentName;
+        }
+      }
+    });
+  });
+
+  const intermediates = Array.from(intermediateMap.values());
+  const rootIntermediates = intermediates.filter((it) => !it.parent);
+
+  const attachUbos = (parentName) => allHolders.filter((h) => {
+    const parts = (h.paths || []).map((p) => splitChain(p.chain)).find(Boolean) || [];
+    if (parentName === null) return parts.length === 2;
+    return parts.length > 2 && parts[parts.length - 2] === parentName;
+  });
+
+  const buildNode = (name) => {
+    const children = intermediates.filter((x) => x.parent === name);
+    return {
+      name,
+      childrenIntermediates: children.map((c) => buildNode(c.name)),
+      ubos: attachUbos(name),
+    };
+  };
+
+  const topNodes = rootIntermediates.map((it) => buildNode(it.name));
+  const directUbos = attachUbos(null);
+
+  return (
+    <div className="dash-tree">
+      <div className="dash-tree__stage">
+        <TreeNodeBox
+          kind="entity"
+          label={entity.name}
+          sub={entity.registrationNumber ? `Reg. ${entity.registrationNumber}` : 'Legal entity'}
+        />
+
+        {(topNodes.length > 0 || directUbos.length > 0) && <div className="dash-tree__vline dash-tree__vline--tall" />}
+
+        {(topNodes.length > 0 || directUbos.length > 0) ? (
+          <div className="dash-tree__branch-row">
+            <div className="dash-tree__hconnector" />
+            <div className="dash-tree__cap dash-tree__cap--left" />
+            <div className="dash-tree__cap dash-tree__cap--right" />
+
+            {topNodes.map((node) => (
+              <div key={`int-${node.name}`} className="dash-tree__branch">
+                <div className="dash-tree__vline dash-tree__vline--med" />
+                <TreeNodeBox
+                  kind="intermediate"
+                  label={node.name}
+                  sub={`${node.ubos.length + node.childrenIntermediates.length} downstream`}
+                />
+                {(node.childrenIntermediates.length > 0 || node.ubos.length > 0) && (
+                  <>
+                    <div className="dash-tree__vline dash-tree__vline--med" />
+                    <div className="dash-tree__children">
+                      {node.childrenIntermediates.map((child) => (
+                        <div key={`child-${child.name}`} className="dash-tree__branch">
+                          <TreeNodeBox
+                            kind="intermediate"
+                            label={child.name}
+                            sub={`${child.ubos.length} UBO${child.ubos.length === 1 ? '' : 's'}`}
+                          />
+                          {child.ubos.length > 0 && (
+                            <>
+                              <div className="dash-tree__vline dash-tree__vline--short" />
+                              <div className="dash-tree__stack">
+                                {child.ubos.map((h) => (
+                                  <TreeNodeBox
+                                    key={h.key}
+                                    kind="ubo"
+                                    label={h.fullName}
+                                    sub={`${h.effectivePercentage}% ${isDirectHolder(h) ? 'direct' : 'indirect'}`}
+                                    holder={h}
+                                  />
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {node.ubos.map((h) => (
+                        <TreeNodeBox
+                          key={h.key}
+                          kind="ubo"
+                          label={h.fullName}
+                          sub={`${h.effectivePercentage}% ${isDirectHolder(h) ? 'direct' : 'indirect'}`}
+                          holder={h}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+
+            {directUbos.map((h) => (
+              <div key={`direct-${h.key}`} className="dash-tree__branch">
+                <div className="dash-tree__vline dash-tree__vline--med" />
+                <TreeNodeBox kind="ubo" label={h.fullName} sub={`${h.effectivePercentage}% direct`} holder={h} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {fallback && (
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="dash-tree__vline dash-tree__vline--med" />
+            <TreeNodeBox kind="fallback" label={fallback.name} sub={fallback.position || 'Senior managing official'} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Chain trace
+   ========================================================================== */
+function ChainTraceBlock({ holder }) {
+  const traceRows = (holder.paths || []).map((p) => ({
+    chain: splitChain(p.chain),
+    effective: Number(holder.effectivePercentage ?? p.percentage),
+  }));
+  if (traceRows.length === 0) return null;
+
+  return (
+    <div className="dash-chain">
+      <div className="dash-chain__head">
+        <span className="dash-chain__head-icon"><Link2 size={12} /></span>
+        <span className="dash-chain__title">Chain</span>
+      </div>
+      {traceRows.map((row, rowIdx) => {
+        const { chain, effective } = row;
+        const isDirect = chain.length === 2;
+        return (
+          <div key={rowIdx} style={{ marginTop: rowIdx > 0 ? 8 : 0 }}>
+            <div className="dash-chain__trace">
+              {chain.map((part, i) => (
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i > 0 && <span className="dash-chain__arrow">→</span>}
+                  <span className={`dash-chain__node${i === chain.length - 1 ? (isDirect ? ' dash-chain__node--end-direct' : ' dash-chain__node--end-indirect') : ''}`}>
+                    {part}
+                  </span>
+                </span>
+              ))}
+            </div>
+            <div className="dash-chain__result">
+              <strong className={isDirect ? 'dash-chain__result-strong--direct' : 'dash-chain__result-strong--indirect'}>
+                {effective}%
+              </strong>{' '}{isDirect ? 'direct' : 'indirect'} interest
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Person card
+   ========================================================================== */
+function PersonDetailCard({ holder, kind = 'ubo' }) {
+  return (
+    <div className="dash-person">
+      <div className="dash-person__head">
+        <span className="dash-person__avatar"><Users size={14} /></span>
+        <span className="dash-person__name">{holder.fullName || '—'}</span>
+        {kind === 'ubo' && <span className="dash-chip dash-chip--ubo">UBO</span>}
+        {kind === 'control' && <span className="dash-chip dash-chip--control">Control</span>}
+        {holder.pep && <span className="dash-chip dash-chip--pep">PEP</span>}
+        {holder.status && <StatusBadge status={holder.status} />}
+        {holder.effectivePercentage != null && (
+          <span className="dash-person__pct">
+            <span className="dash-person__pct-value">{holder.effectivePercentage}%</span>
+            <span className={`dash-person__pct-kind ${isDirectHolder(holder) ? 'dash-person__pct-kind--direct' : 'dash-person__pct-kind--indirect'}`}>
+              {isDirectHolder(holder) ? 'direct' : 'indirect'}
+            </span>
+          </span>
+        )}
+      </div>
+      <div className="dash-person__details">
+        <Field k="Full name" v={holder.fullName || '—'} />
+        <Field k="Gender" v={formatGender(holder.gender)} />
+        <Field k="Nationality" v={holder.nationality || '—'} />
+        <Field k="Place of birth" v={holder.placeOfBirth || '—'} />
+        <Field k="Date of birth" v={formatDate(holder.dateOfBirth)} />
+        <Field k="Fayda number" v={holder.idNumber || '—'} mono />
+        <Field k="Phone" v={holder.phoneNumber || '—'} mono />
+        <Field k="Email" v={holder.emailAddress || '—'} />
+        <Field k="Occupation" v={holder.occupation || '—'} />
+        <Field k="Residential address" v={holder.residentialAddress || '—'} />
+        <Field k="Date became BO" v={formatDate(holder.dateBecameBo)} />
+      </div>
+      <ChainTraceBlock holder={holder} />
+    </div>
+  );
+}
+
+function FallbackDetailCard({ fallback }) {
+  return (
+    <div className="dash-fallback">
+      <div className="dash-fallback__head">
+        <span className="dash-fallback__avatar"><Users size={14} /></span>
+        <span className="dash-fallback__name">{fallback.name}</span>
+        <span className="dash-fallback__badge">Fallback</span>
+      </div>
+      <div className="dash-fallback__details">
+        <Field k="Position" v={fallback.position || '—'} />
+        <Field k="Justification" v={fallback.justification || '—'} />
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Full structure
+   ========================================================================== */
+function OwnershipStructure({ entity }) {
+  const tree = entity.tree;
+  if (!tree) return null;
+  const ubos = (tree.holders || []).filter((h) => h.ubo);
+  const controlOnly = (tree.holders || []).filter(
+    (h) => !h.ubo && ((h.controlBasis || []).length > 0 || h.qualifiesByControl),
+  );
+  const fallback = tree.seniorManagingOfficial;
+
+  return (
+    <div className="dash-structure">
+      {ubos.length > 0 && (
+        <div className="dash-structure__section">
+          <div className="dash-structure__label">Beneficial owners ({ubos.length})</div>
+          {ubos.map((h) => <PersonDetailCard key={h.key} holder={h} kind="ubo" />)}
+        </div>
+      )}
+      {controlOnly.length > 0 && (
+        <div className="dash-structure__section">
+          <div className="dash-structure__label">Control-only holders ({controlOnly.length})</div>
+          {controlOnly.map((h) => <PersonDetailCard key={h.key} holder={h} kind="control" />)}
+        </div>
+      )}
+      {fallback && (
+        <div className="dash-structure__section">
+          <div className="dash-structure__label">Senior managing official (fallback)</div>
+          <FallbackDetailCard fallback={fallback} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   Dashboard
+   ========================================================================== */
+export default function Dashboard({ onRegister, canRegister }) {
+  const [legalPersons, setLegalPersons] = useState([]);
+  const [trees, setTrees] = useState({});
+  const [entityId, setEntityId] = useState('');
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingTree, setLoadingTree] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingList(true);
+    listLegalPersons({ size: 500, sort: 'createdAt,desc' })
+      .then((listRes) => {
+        if (cancelled) return;
+        const list = listRes.content || [];
+        setLegalPersons(list);
+        if (list.length > 0 && !entityId) setEntityId(list[0].id);
+        setError(null);
+      })
+      .catch((err) => !cancelled && setError(err.friendlyMessage || 'Failed to load dashboard'))
+      .finally(() => !cancelled && setLoadingList(false));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!entityId || trees[entityId]) return;
+    let cancelled = false;
+    setLoadingTree(true);
+    getOwnershipTree(entityId)
+      .then((t) => { if (!cancelled) setTrees((prev) => ({ ...prev, [entityId]: t })); })
+      .catch((err) => { if (!cancelled) setError(err.friendlyMessage || 'Failed to load ownership structure'); })
+      .finally(() => { if (!cancelled) setLoadingTree(false); });
+    return () => { cancelled = true; };
+  }, [entityId, trees]);
+
+  const entities = useMemo(
+    () => legalPersons.map((lp) => {
+      const tree = trees[lp.id];
+      const ubos = (tree?.holders || []).filter((h) => h.ubo);
+      return {
+        id: lp.id,
+        name: lp.name,
+        registrationNumber: lp.registrationNumber,
+        entityType: lp.entityType,
+        sector: lp.sector,
+        countryOfIncorporation: lp.countryOfIncorporation,
+        createdAt: lp.createdAt,
+        uboCount: ubos.length,
+        fallback: tree?.seniorManagingOfficial || null,
+        tree,
+      };
+    }),
+    [legalPersons, trees],
+  );
+
+  const selectedEntity = entities.find((e) => e.id === entityId) || null;
+
+  const totals = useMemo(() => {
+    const loaded = entities.filter((e) => e.tree);
+    const totalUbos = loaded.reduce((s, e) => s + e.uboCount, 0);
+    const verified = loaded.reduce(
+      (s, e) => s + (e.tree?.holders || []).filter(
+        (h) => h.ubo && (h.status === 'VERIFIED' || h.status === 'APPROVED' || h.registered),
+      ).length,
+      0,
+    );
+    const pending = loaded.reduce(
+      (s, e) => s + (e.tree?.holders || []).filter((h) => h.ubo && h.status === 'PENDING').length,
+      0,
+    );
+    return { totalUbos, verified, pending };
+  }, [entities]);
+
+  /* Fake spark data so the KPI tiles feel alive (replace with real history later) */
+  const spark = (base) => [...Array(8)].map((_, i) => ({ v: base + i * 2 + (i % 3) }));
+
+  return (
+    <div className="dashboard-root">
+      {/* Header */}
+      <div className="dashboard-header dashboard-no-print">
+        <div>
+          <div className="dashboard-header__title-row">
+            <h1 className="dashboard-header__title">Overview</h1>
+            {entityId && <span className="dashboard-pill"><Filter size={12} /> Filtered</span>}
+          </div>
+          <div className="dashboard-header__subtitle">
+            Beneficial ownership by legal entity — chart, summary & tree
+          </div>
+        </div>
+        <div className="dashboard-header__actions">
+          {entityId && (
+            <Btn variant="secondary" icon={<Printer size={14} />} onClick={() => window.print()}>
+              Print
+            </Btn>
+          )}
+          {canRegister && (
+            <Btn variant="primary" size="lg" icon={<Plus size={14} />} onClick={onRegister}>
+              New record
+            </Btn>
+          )}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="dash-error"
+          >
+            <AlertTriangle size={14} /><span>{error}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* KPI row */}
+      <div className="dash-kpi-grid dashboard-printable">
+        <ModernKpi label="Legal entities" value={entities.length} icon={Building2} caption="Registered customers" loading={loadingList} spark={spark(8)} delta={4.2} />
+        <ModernKpi label="Total UBOs" value={totals.totalUbos} icon={Users} tone="info" caption={selectedEntity ? 'In selected entity' : 'Across loaded entities'} loading={loadingTree && !selectedEntity} spark={spark(12)} delta={8.1} />
+        <ModernKpi label="Verified" value={totals.verified} icon={CheckCircle2} tone="success" caption="Approved by checker" loading={loadingTree && !selectedEntity} spark={spark(6)} delta={12.5} />
+        <ModernKpi label="Pending" value={totals.pending} icon={Clock} tone="warn" caption="Awaiting approval" loading={loadingTree && !selectedEntity} spark={spark(4)} delta={-3.1} />
+      </div>
+
+      {/* Filter */}
+      <div className="dash-filter-card dashboard-no-print">
+        <div className="dash-filter-card__head">
+          <span className="dash-filter-card__label"><Filter size={12} /> Filter by legal entity</span>
+          <span className="dash-filter-card__divider" />
+          {entityId && (
+            <Btn variant="ghost" size="sm" icon={<X size={12} />} onClick={() => setEntityId('')}>
+              Clear
+            </Btn>
+          )}
+        </div>
+        <EntityCombobox
+          options={entities.map((e) => ({ value: e.id, label: e.name, sub: e.registrationNumber }))}
+          value={entityId}
+          onChange={setEntityId}
+          loading={loadingList}
+        />
+        {selectedEntity && (
+          <div className="dash-filter-card__meta">
+            <span>Showing structure for</span>
+            <strong>{selectedEntity.name}</strong>
+            {selectedEntity.registrationNumber && <span className="dash-filter-card__meta-mono">· {selectedEntity.registrationNumber}</span>}
+            <span className="dash-filter-card__meta-ubo">
+              <span className="dash-filter-card__dot" />
+              <span style={{ fontWeight: 600, color: 'var(--dash-success)' }}>
+                {selectedEntity.uboCount} UBO{selectedEntity.uboCount === 1 ? '' : 's'}
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Empty state */}
+      {!entityId && (
+        <div className="dash-empty">
+          <span className="dash-empty__icon"><Building2 size={36} /></span>
+          <div className="dash-empty__title">Select a legal entity</div>
+          <div className="dash-empty__desc">Choose an entity to view its chart, summary, tree, and structure.</div>
+        </div>
+      )}
+
+      {/* Bento grid */}
+      {entityId && selectedEntity && (
+        <div className="dash-bento dashboard-printable">
+          {selectedEntity.tree && (
+            <>
+              <div className="dash-panel col-4">
+                <div className="dash-panel__head">
+                  <span className="dash-panel__head-icon"><PieIcon size={14} /></span>
+                  <span className="dash-panel__title">Ownership distribution</span>
+                </div>
+                <OwnershipPieChart entity={selectedEntity} />
+              </div>
+              <div className="col-4">
+                <OwnershipSummaryCard entity={selectedEntity} />
+              </div>
+              <div className="dash-panel col-4" style={{ minHeight: 260 }}>
+                <div className="dash-panel__head">
+                  <span className="dash-panel__head-icon"><Building2 size={14} /></span>
+                  <span className="dash-panel__title">Entities by sector</span>
+                </div>
+                <div style={{ height: 220 }}>
+                  <SectorRadar entities={entities} />
+                </div>
+              </div>
+
+              <div className="dash-panel col-12" style={{ minHeight: 300 }}>
+                <div className="dash-panel__head">
+                  <span className="dash-panel__head-icon"><Users size={14} /></span>
+                  <span className="dash-panel__title">UBO status by entity</span>
+                </div>
+                <div style={{ height: 260 }}>
+                  <UboStatusChart entities={entities} />
+                </div>
+              </div>
+
+              <div className="dash-panel col-12">
+                <div className="dash-panel__head">
+                  <span className="dash-panel__head-icon"><GitBranch size={14} /></span>
+                  <span className="dash-panel__title">Ownership tree — {selectedEntity.name}</span>
+                </div>
+                <OwnershipTreeDiagram entity={selectedEntity} />
+              </div>
+
+              <div className="dash-panel col-12">
+                <div className="dash-panel__head">
+                  <span className="dash-panel__head-icon"><Users size={14} /></span>
+                  <span className="dash-panel__title">Detailed structure</span>
+                </div>
+                <OwnershipStructure entity={selectedEntity} />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
