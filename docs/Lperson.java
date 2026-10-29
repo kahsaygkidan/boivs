@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+Uncaught TypeError: LEGAL_DOC_TYPES.map is not a function
+    at NewLegalRegistration (NewLegalRegistration.jsx:1290:31)
+    at renderWithHooks (react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (react-dom.development.js:20103:13)
+    at beginWork (react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback2 (react-dom.development.js:4164:14)
+    at Object.invokeGuardedCallbackDev (react-dom.development.js:4213:16)
+    at invokeGuardedCallback (react-dom.development.js:4277:31)
+    at beginWork$1 (react-dom.development.js:27490:7)
+    at performUnitOfWork (react-dom.development.js:26596:12)
+    at workLoopSync (react-dom.development.js:26505:5)'import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createBoRecord, createLegalPerson, getOwnershipTree, listLegalPersons,
   saveSeniorManagingOfficial, searchBoRecords, updateLegalPersonProfile,
