@@ -1,0 +1,897 @@
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/domain/LegalPerson.java be/backend/src/main/java/dashen/bank/boivs/domain/LegalPerson.java
+--- be_orig/src/main/java/dashen/bank/boivs/domain/LegalPerson.java	2026-10-30 17:58:12.928564508 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/domain/LegalPerson.java	2026-10-30 17:58:12.977835037 +0000
+@@ -37,7 +37,8 @@
+     @Column(name = "country_of_incorporation", length = 100)
+     private String countryOfIncorporation;
+ 
+-    @Column(name = "sector", length = 500)
++    @Enumerated(EnumType.STRING)
++    @Column(name = "sector", length = 50)
+     private Sector sector;
+ 
+     @Column(name = "directors_and_management", length = 2000)
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/domain/OwnershipNode.java be/backend/src/main/java/dashen/bank/boivs/domain/OwnershipNode.java
+--- be_orig/src/main/java/dashen/bank/boivs/domain/OwnershipNode.java	2026-10-30 17:58:12.928599379 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/domain/OwnershipNode.java	2026-10-30 18:07:03.760287035 +0000
+@@ -60,6 +60,27 @@
+     @Column(name = "control_notes", length = 1000)
+     private String controlNotes;
+ 
++    /* Optional per-criterion direct stakes (Regulation 592/2026). null = follows ownership_percentage
++       (profit / dissolution / voting) or 0 (convertible debt). */
++    @Column(name = "profit_percentage", precision = 5, scale = 2)
++    private BigDecimal profitPercentage;
++
++    @Column(name = "dissolution_percentage", precision = 5, scale = 2)
++    private BigDecimal dissolutionPercentage;
++
++    @Column(name = "voting_percentage", precision = 5, scale = 2)
++    private BigDecimal votingPercentage;
++
++    @Column(name = "convertible_debt_percentage", precision = 5, scale = 2)
++    private BigDecimal convertibleDebtPercentage;
++
++    @Column(name = "preferential_shares")
++    private Boolean preferentialShares;
++
++    /** Individuals sharing the same group label hold jointly; their stakes are combined for the test. */
++    @Column(name = "joint_group", length = 100)
++    private String jointGroup;
++
+     /** Set once a BO record has been registered for this person from this node. */
+     @Column(name = "beneficial_owner_id", length = 36)
+     private String beneficialOwnerId;
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/dto/BeneficialOwnerResponse.java be/backend/src/main/java/dashen/bank/boivs/dto/BeneficialOwnerResponse.java
+--- be_orig/src/main/java/dashen/bank/boivs/dto/BeneficialOwnerResponse.java	2026-10-30 17:58:12.928772658 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/dto/BeneficialOwnerResponse.java	2026-10-30 17:58:12.978132714 +0000
+@@ -94,7 +94,7 @@
+         return new BeneficialOwnerResponse(
+                 b.getId(), b.getBoReference(), b.getLegalPerson().getId(), b.getLegalPerson().getName(),
+                 b.getLegalPerson().getRegistrationNumber(), b.getLegalPerson().getTin(),
+-                b.getLegalPerson().getCountryOfIncorporation(), b.getLegalPerson().getNatureOfBusiness(),
++                b.getLegalPerson().getCountryOfIncorporation(), b.getLegalPerson().getSector() == null ? null : b.getLegalPerson().getSector().name(),
+                 b.getLegalPerson().getDirectorsAndManagement(),
+                 b.getFullName(), b.getGender(), b.getDateOfBirth(), b.getPlaceOfBirth(), b.getNationality(),
+                 b.getResidentialStatus(), b.getResidentialAddress(), b.getEmailAddress(), b.getPhoneNumber(),
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/dto/OwnershipNodeRequest.java be/backend/src/main/java/dashen/bank/boivs/dto/OwnershipNodeRequest.java
+--- be_orig/src/main/java/dashen/bank/boivs/dto/OwnershipNodeRequest.java	2026-10-30 17:58:12.929026144 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/dto/OwnershipNodeRequest.java	2026-10-30 18:07:03.760557411 +0000
+@@ -28,7 +28,19 @@
+         @DecimalMax("100.00")
+         BigDecimal ownershipPercentage,
+         List<ControlBasis> controlBasis,
+-        String controlNotes
++        String controlNotes,
++        /** Partnerships / LLP: direct profit entitlement %. Omit to follow ownershipPercentage. */
++        @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal profitPercentage,
++        /** Partnerships / LLP / PPP: direct share of assets on dissolution %. Omit to follow ownershipPercentage. */
++        @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal dissolutionPercentage,
++        /** General / limited partnerships: direct voting rights %. Omit to follow ownershipPercentage. */
++        @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal votingPercentage,
++        /** Share companies / financial institutions: direct convertible equity debt %. */
++        @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal convertibleDebtPercentage,
++        /** Share companies: holder of preferential shares (qualifies regardless of percentage). */
++        Boolean preferentialShares,
++        /** Share companies / PLCs / financial institutions: same label = persons holding jointly. */
++        String jointGroup
+ ) {
+ 
+ }
+\ No newline at end of file
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/dto/OwnershipTreeResponse.java be/backend/src/main/java/dashen/bank/boivs/dto/OwnershipTreeResponse.java
+--- be_orig/src/main/java/dashen/bank/boivs/dto/OwnershipTreeResponse.java	2026-10-30 17:58:12.929044659 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/dto/OwnershipTreeResponse.java	2026-10-30 18:07:03.760779171 +0000
+@@ -59,7 +59,13 @@
+             String ownershipNodeId,
+             boolean registered,
+             String beneficialOwnerId,
+-            String beneficialOwnerReference
++            String beneficialOwnerReference,
++            /** Joint-holding label, when the person holds jointly with others (null otherwise). */
++            String jointGroup,
++            /** Combined ownership % of the whole joint group (null when not joint). */
++            BigDecimal jointPercentage,
++            /** Which holding tests made the person qualify: OWNERSHIP, CONVERTIBLE_DEBT, PREFERENTIAL_SHARES, PROFIT, DISSOLUTION, VOTING. */
++            List<String> qualifyingCriteria
+     ) {
+ 
+     }
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/repository/LegalPersonDocumentRepository.java be/backend/src/main/java/dashen/bank/boivs/repository/LegalPersonDocumentRepository.java
+--- be_orig/src/main/java/dashen/bank/boivs/repository/LegalPersonDocumentRepository.java	2026-10-30 17:58:12.929421042 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/repository/LegalPersonDocumentRepository.java	2026-10-30 18:07:03.761056170 +0000
+@@ -1,10 +1,13 @@
+ package dashen.bank.boivs.repository;
+ 
+ import dashen.bank.boivs.domain.LegalPersonDocument;
++import dashen.bank.boivs.domain.enums.LegalDocType;
+ import org.springframework.data.jpa.repository.JpaRepository;
+ 
+ import java.util.List;
+ 
+ public interface LegalPersonDocumentRepository extends JpaRepository<LegalPersonDocument, String> {
+     List<LegalPersonDocument> findByLegalPersonIdOrderByUploadedAtDesc(String legalPersonId);
++
++    boolean existsByLegalPersonIdAndDocType(String legalPersonId, LegalDocType docType);
+ }
+\ No newline at end of file
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/service/BeneficialOwnerService.java be/backend/src/main/java/dashen/bank/boivs/service/BeneficialOwnerService.java
+--- be_orig/src/main/java/dashen/bank/boivs/service/BeneficialOwnerService.java	2026-10-30 17:58:12.929692273 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/service/BeneficialOwnerService.java	2026-10-30 18:07:03.762837582 +0000
+@@ -96,6 +96,10 @@
+             throw new InvalidWorkflowStateException("Source of wealth is required for a politically exposed person");
+         }
+         bo.setCreatedBy(currentUser.username());
++        if (submitImmediately) {
++            ownershipStructureService.requireSubmissionPrerequisites(legalPerson,
++                    bo.getCapacity() != BoCapacity.SENIOR_MANAGING_OFFICIAL);
++        }
+         bo.setStatus(submitImmediately ? BoStatus.PENDING : BoStatus.DRAFT);
+ 
+         BeneficialOwner saved = boRepository.save(bo);
+@@ -138,9 +142,11 @@
+         if (fromTree) {
+             Derivation d = ownershipStructureService.derive(legalPerson.getId(), req.ownershipNodeId());
+             if (!d.qualifiesByOwnership() && !d.qualifiesByControl()) {
+-                throw new InvalidWorkflowStateException("This person's aggregated ownership ("
++                throw new InvalidWorkflowStateException(d.threshold() == null
++                        ? "This person holds no ownership and no control basis is recorded, so they are not a UBO"
++                        : "This person's aggregated ownership ("
+                         + d.effectivePercentage().stripTrailingZeros().toPlainString() + "%) is below the "
+-                        + ownershipStructureService.threshold().stripTrailingZeros().toPlainString()
++                        + d.threshold().stripTrailingZeros().toPlainString()
+                         + "% threshold and no control basis is recorded, so they are not a UBO");
+             }
+             bo.setOwnershipNodeId(req.ownershipNodeId());
+@@ -293,6 +299,8 @@
+         if (bo.getStatus() != BoStatus.DRAFT && bo.getStatus() != BoStatus.REJECTED) {
+             throw new InvalidWorkflowStateException("Only draft or rejected records can be submitted for verification");
+         }
++        ownershipStructureService.requireSubmissionPrerequisites(bo.getLegalPerson(),
++                bo.getCapacity() != BoCapacity.SENIOR_MANAGING_OFFICIAL);
+         bo.setStatus(BoStatus.PENDING);
+         bo.setRejectionReason(null);
+         BeneficialOwner saved = boRepository.save(bo);
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/service/BoThresholdPolicy.java be/backend/src/main/java/dashen/bank/boivs/service/BoThresholdPolicy.java
+--- be_orig/src/main/java/dashen/bank/boivs/service/BoThresholdPolicy.java	1970-01-01 00:00:00.000000000 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/service/BoThresholdPolicy.java	2026-10-30 18:06:00.957530665 +0000
+@@ -0,0 +1,178 @@
++package dashen.bank.boivs.service;
++
++import java.math.BigDecimal;
++import java.math.RoundingMode;
++import java.util.EnumSet;
++import java.util.Set;
++
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.stereotype.Component;
++
++import dashen.bank.boivs.domain.enums.EntityType;
++import dashen.bank.boivs.domain.enums.Sector;
++
++/**
++ * Beneficial-ownership tests per Regulation No. 592/2026 (Transparency of Legal Persons'
++ * Beneficial Ownership Information). Keep in step with getThresholdInfo() in the front-end uboForm.js.
++ *
++ * Entity types the regulation table does not cover (e.g. PUBLIC_LIMITED_COMPANY, TRUST) and foreign legal
++ * persons (no threshold in the table) use the configurable fallback bovs.ubo.ownership-threshold (default 25)
++ * on plain ownership.
++ */
++@Component
++public class BoThresholdPolicy {
++
++    /** Sectors that reduce the Share Company threshold from 10% to 5%. */
++    private static final Set<Sector> REDUCED_THRESHOLD_SECTORS =
++            EnumSet.of(Sector.MINING, Sector.REAL_ESTATE, Sector.MOTOR_DEALERSHIP, Sector.IMPORT_EXPORT);
++
++    /** Absorbs decimal noise from multiplying percentages through ownership chains. */
++    private static final BigDecimal EPSILON = new BigDecimal("0.0001");
++    private static final BigDecimal HUNDRED = new BigDecimal("100");
++    private static final int SCALE = 8;
++
++    public enum Mode {
++        /** Regulated percentage test: any listed criterion >= threshold, or control. */
++        PERCENTAGE,
++        /** One Member PLC: the owner (any holding) and the general manager / controller (control basis). */
++        OWNER_PLUS_MANAGER,
++        /** No rule in the regulation table: configurable fallback percentage on plain ownership. */
++        FALLBACK
++    }
++
++    /** What can make a person a beneficial owner by holding (control is handled separately). */
++    public enum Criterion {
++        OWNERSHIP, CONVERTIBLE_DEBT, PREFERENTIAL_SHARES, PROFIT, DISSOLUTION, VOTING
++    }
++
++    /**
++     * threshold is null only for OWNER_PLUS_MANAGER. jointAllowed: individuals in the same joint group
++     * (persons holding jointly) are tested on their combined stake.
++     */
++    public record Rule(Mode mode, BigDecimal threshold, Set<Criterion> criteria, boolean jointAllowed) {
++
++    }
++
++    /**
++     * A person's effective stake in the customer, per criterion, after multiplying through every layer.
++     * Profit / dissolution / voting default to the ownership percentage when not given separately.
++     */
++    public record Stake(BigDecimal ownership, BigDecimal profit, BigDecimal dissolution, BigDecimal voting,
++                        BigDecimal convertibleDebt, boolean preferentialShares) {
++
++        public static Stake zero() {
++            return new Stake(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
++        }
++
++        /** The customer itself: 100% of everything. */
++        public static Stake root() {
++            return new Stake(HUNDRED, HUNDRED, HUNDRED, HUNDRED, HUNDRED, false);
++        }
++
++        /** A plain ownership stake (profit / dissolution / voting follow ownership). */
++        public static Stake ofOwnership(BigDecimal pct) {
++            return new Stake(pct, pct, pct, pct, BigDecimal.ZERO, false);
++        }
++
++        /**
++         * Stake obtained through one more layer: this (the parent's effective stake) x the node's direct
++         * percentages. A null profit/dissolution/voting means "same as ownership"; a null debt means 0.
++         */
++        public Stake through(BigDecimal own, BigDecimal profitPct, BigDecimal dissolutionPct, BigDecimal votingPct,
++                             BigDecimal debtPct, boolean preferential) {
++            BigDecimal o = own == null ? BigDecimal.ZERO : own;
++            return new Stake(
++                    mul(ownership, o),
++                    mul(profit, profitPct == null ? o : profitPct),
++                    mul(dissolution, dissolutionPct == null ? o : dissolutionPct),
++                    mul(voting, votingPct == null ? o : votingPct),
++                    mul(convertibleDebt, debtPct == null ? BigDecimal.ZERO : debtPct),
++                    preferential);
++        }
++
++        public Stake plus(Stake o) {
++            return new Stake(ownership.add(o.ownership), profit.add(o.profit), dissolution.add(o.dissolution),
++                    voting.add(o.voting), convertibleDebt.add(o.convertibleDebt),
++                    preferentialShares || o.preferentialShares);
++        }
++
++        private static BigDecimal mul(BigDecimal parent, BigDecimal pct) {
++            return parent.multiply(pct).divide(HUNDRED, SCALE, RoundingMode.HALF_UP);
++        }
++    }
++
++    private final BigDecimal fallbackThreshold;
++
++    public BoThresholdPolicy(@Value("${bovs.ubo.ownership-threshold:25}") BigDecimal fallbackThreshold) {
++        this.fallbackThreshold = fallbackThreshold;
++    }
++
++    public Rule resolve(EntityType type, Sector sector) {
++        if (type == null) {
++            return fallback();
++        }
++        return switch (type) {
++            case SHARE_COMPANY -> new Rule(Mode.PERCENTAGE,
++                    new BigDecimal(sector != null && REDUCED_THRESHOLD_SECTORS.contains(sector) ? "5" : "10"),
++                    EnumSet.of(Criterion.OWNERSHIP, Criterion.CONVERTIBLE_DEBT, Criterion.PREFERENTIAL_SHARES), true);
++            case PRIVATE_LIMITED_COMPANY -> new Rule(Mode.PERCENTAGE, new BigDecimal("5"),
++                    EnumSet.of(Criterion.OWNERSHIP), true);
++            case FINANCIAL_INSTITUTION -> new Rule(Mode.PERCENTAGE, new BigDecimal("2"),
++                    EnumSet.of(Criterion.OWNERSHIP, Criterion.CONVERTIBLE_DEBT), true);
++            case GENERAL_PARTNERSHIP, LIMITED_PARTNERSHIP -> new Rule(Mode.PERCENTAGE, new BigDecimal("25"),
++                    EnumSet.of(Criterion.PROFIT, Criterion.DISSOLUTION, Criterion.VOTING), false);
++            case LIMITED_LIABILITY_PARTNERSHIP -> new Rule(Mode.PERCENTAGE, new BigDecimal("25"),
++                    EnumSet.of(Criterion.PROFIT, Criterion.DISSOLUTION), false);
++            case PPP -> new Rule(Mode.PERCENTAGE, new BigDecimal("25"),
++                    EnumSet.of(Criterion.OWNERSHIP, Criterion.DISSOLUTION), false);
++            case ONE_MEMBER_PLC -> new Rule(Mode.OWNER_PLUS_MANAGER, null, EnumSet.of(Criterion.OWNERSHIP), false);
++            default -> fallback();
++        };
++    }
++
++    /** The criteria this stake satisfies (inclusive >= with a small rounding tolerance). Empty = none. */
++    public Set<Criterion> qualifyingCriteria(Rule rule, Stake stake) {
++        Set<Criterion> met = EnumSet.noneOf(Criterion.class);
++        if (rule == null || stake == null) {
++            return met;
++        }
++        if (rule.mode() == Mode.OWNER_PLUS_MANAGER) {
++            if (stake.ownership().signum() > 0) {
++                met.add(Criterion.OWNERSHIP);
++            }
++            return met;
++        }
++        for (Criterion c : rule.criteria()) {
++            boolean ok = switch (c) {
++                case OWNERSHIP -> reaches(stake.ownership(), rule.threshold());
++                case PROFIT -> reaches(stake.profit(), rule.threshold());
++                case DISSOLUTION -> reaches(stake.dissolution(), rule.threshold());
++                case VOTING -> reaches(stake.voting(), rule.threshold());
++                case CONVERTIBLE_DEBT -> stake.convertibleDebt().signum() > 0
++                        && reaches(stake.convertibleDebt(), rule.threshold());
++                case PREFERENTIAL_SHARES -> stake.preferentialShares();
++            };
++            if (ok) {
++                met.add(c);
++            }
++        }
++        return met;
++    }
++
++    public boolean qualifiesByOwnership(Rule rule, Stake stake) {
++        return !qualifyingCriteria(rule, stake).isEmpty();
++    }
++
++    /** Convenience for a plain ownership percentage. */
++    public boolean qualifiesByOwnership(Rule rule, BigDecimal ownershipPercentage) {
++        return ownershipPercentage != null && qualifiesByOwnership(rule, Stake.ofOwnership(ownershipPercentage));
++    }
++
++    private static boolean reaches(BigDecimal value, BigDecimal threshold) {
++        return value.add(EPSILON).compareTo(threshold) >= 0;
++    }
++
++    private Rule fallback() {
++        return new Rule(Mode.FALLBACK, fallbackThreshold, EnumSet.of(Criterion.OWNERSHIP), false);
++    }
++}
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/service/LegalPersonDocumentStorageService.java be/backend/src/main/java/dashen/bank/boivs/service/LegalPersonDocumentStorageService.java
+--- be_orig/src/main/java/dashen/bank/boivs/service/LegalPersonDocumentStorageService.java	2026-10-30 17:58:12.929793333 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/service/LegalPersonDocumentStorageService.java	2026-10-31 00:10:34.056675781 +0000
+@@ -2,7 +2,7 @@
+ 
+ import dashen.bank.boivs.domain.LegalPersonDocument;
+ import dashen.bank.boivs.domain.enums.LegalDocType;
+-import dashen.bank.boivs.repo.LegalPersonDocumentRepository;
++import dashen.bank.boivs.repository.LegalPersonDocumentRepository;
+ import dashen.bank.boivs.exception.NotFoundException;
+ import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Service;
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/service/LegalPersonService.java be/backend/src/main/java/dashen/bank/boivs/service/LegalPersonService.java
+--- be_orig/src/main/java/dashen/bank/boivs/service/LegalPersonService.java	2026-10-30 17:58:12.929816719 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/service/LegalPersonService.java	2026-10-30 17:58:12.977554992 +0000
+@@ -37,7 +37,7 @@
+         lp.setEntityType(request.entityType());
+         lp.setTin(request.tin());
+         lp.setCountryOfIncorporation(request.countryOfIncorporation());
+-        lp.setNatureOfBusiness(request.natureOfBusiness());
++        lp.setSector(request.sector());
+         lp.setDirectorsAndManagement(request.directorsAndManagement());
+         lp.setCreatedBy(currentUser.username());
+         LegalPerson saved = legalPersonRepository.save(lp);
+@@ -46,13 +46,13 @@
+         return saved;
+     }
+ 
+-    /** Updates the customer KYC profile (TIN, country, nature of business, directors / senior management). */
++    /** Updates the customer KYC profile (TIN, country, sector, directors / senior management). */
+     @Transactional
+     public LegalPerson updateProfile(String id, LegalPersonProfileRequest request) {
+         LegalPerson lp = getById(id);
+         lp.setTin(request.tin());
+         lp.setCountryOfIncorporation(request.countryOfIncorporation());
+-        lp.setNatureOfBusiness(request.natureOfBusiness());
++        lp.setSector(request.sector());
+         lp.setDirectorsAndManagement(request.directorsAndManagement());
+         LegalPerson saved = legalPersonRepository.save(lp);
+         auditService.record("LEGAL_PERSON", saved.getRegistrationNumber(), AuditAction.LEGAL_PERSON_UPDATED,
+diff -ruN be_orig/src/main/java/dashen/bank/boivs/service/OwnershipStructureService.java be/backend/src/main/java/dashen/bank/boivs/service/OwnershipStructureService.java
+--- be_orig/src/main/java/dashen/bank/boivs/service/OwnershipStructureService.java	2026-10-30 17:58:12.929842976 +0000
++++ be/backend/src/main/java/dashen/bank/boivs/service/OwnershipStructureService.java	2026-10-31 00:09:45.593393399 +0000
+@@ -12,9 +12,9 @@
+ import java.util.Map;
+ import java.util.Objects;
+ import java.util.Set;
++import java.util.function.Function;
+ import java.util.stream.Collectors;
+ 
+-import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+@@ -24,6 +24,8 @@
+ import dashen.bank.boivs.domain.enums.AuditAction;
+ import dashen.bank.boivs.domain.enums.BoStatus;
+ import dashen.bank.boivs.domain.enums.ControlBasis;
++import dashen.bank.boivs.domain.enums.EntityType;
++import dashen.bank.boivs.domain.enums.LegalDocType;
+ import dashen.bank.boivs.domain.enums.NodeType;
+ import dashen.bank.boivs.domain.enums.OwnershipType;
+ import dashen.bank.boivs.dto.NodeControlRequest;
+@@ -38,15 +40,19 @@
+ import dashen.bank.boivs.exception.InvalidWorkflowStateException;
+ import dashen.bank.boivs.exception.NotFoundException;
+ import dashen.bank.boivs.repository.BeneficialOwnerRepository;
++import dashen.bank.boivs.repository.LegalPersonDocumentRepository;
+ import dashen.bank.boivs.repository.LegalPersonRepository;
+ import dashen.bank.boivs.repository.OwnershipNodeRepository;
+ import dashen.bank.boivs.security.CurrentUser;
++import dashen.bank.boivs.service.BoThresholdPolicy.Criterion;
++import dashen.bank.boivs.service.BoThresholdPolicy.Stake;
+ 
+ /**
+  * Multi-layer UBO tracing. A customer's shareholders are stored as a tree; companies are traced
+  * through every intermediate layer until natural persons are reached. Effective (indirect) ownership
+  * is the product of the percentages along each path, summed per natural person across all branches.
+- * A person is a UBO if the aggregated stake reaches the threshold OR a control basis is recorded.
++ * A person is a UBO if the aggregated stake reaches the threshold for the customer's entity type and
++ * sector (Regulation 592/2026, see BoThresholdPolicy) OR a control basis is recorded.
+  */
+ @Service
+ public class OwnershipStructureService {
+@@ -61,7 +67,8 @@
+     private final BeneficialOwnerRepository boRepository;
+     private final CurrentUser currentUser;
+     private final AuditService auditService;
+-    private final BigDecimal threshold;
++    private final BoThresholdPolicy thresholdPolicy;
++    private final LegalPersonDocumentRepository documentRepository;
+ 
+     public OwnershipStructureService(OwnershipNodeRepository nodeRepository,
+                                      LegalPersonRepository legalPersonRepository,
+@@ -69,14 +76,16 @@
+                                      BeneficialOwnerRepository boRepository,
+                                      CurrentUser currentUser,
+                                      AuditService auditService,
+-                                     @Value("${bovs.ubo.ownership-threshold:25}") BigDecimal threshold) {
++                                     BoThresholdPolicy thresholdPolicy,
++                                     LegalPersonDocumentRepository documentRepository) {
+         this.nodeRepository = nodeRepository;
+         this.legalPersonRepository = legalPersonRepository;
+         this.legalPersonService = legalPersonService;
+         this.boRepository = boRepository;
+         this.currentUser = currentUser;
+         this.auditService = auditService;
+-        this.threshold = threshold;
++        this.thresholdPolicy = thresholdPolicy;
++        this.documentRepository = documentRepository;
+     }
+ 
+     /** What the BO record must be populated with when created from a node of the tree. */
+@@ -86,7 +95,9 @@
+             OwnershipType ownershipType,
+             List<ControlBasis> controlBasis,
+             boolean qualifiesByOwnership,
+-            boolean qualifiesByControl) {
++            boolean qualifiesByControl,
++            /** Threshold applied to this customer; null for a One Member PLC (no percentage test). */
++            BigDecimal threshold) {
+ 
+     }
+ 
+@@ -101,7 +112,7 @@
+ 
+         Map<String, String> boRefs = boReferences(c);
+         List<Holder> holders = c.holders.values().stream()
+-                .map(h -> toHolder(h, boRefs))
++                .map(h -> toHolder(h, boRefs, c))
+                 .sorted(Comparator.comparing(Holder::effectivePercentage).reversed())
+                 .toList();
+         Set<String> uboKeys = holders.stream().filter(Holder::ubo).map(Holder::key).collect(Collectors.toSet());
+@@ -113,7 +124,7 @@
+         SeniorManagingOfficial smo = lp.getSmoName() == null ? null
+                 : new SeniorManagingOfficial(lp.getSmoName(), lp.getSmoPosition(), lp.getSmoJustification());
+ 
+-        return new OwnershipTreeResponse(lp.getId(), lp.getName(), lp.getRegistrationNumber(), threshold,
++        return new OwnershipTreeResponse(lp.getId(), lp.getName(), lp.getRegistrationNumber(), c.rule.threshold(),
+                 roots, holders, c.warnings, fallbackAllowed, smo);
+     }
+ 
+@@ -137,9 +148,10 @@
+         List<ControlBasis> controls = individual && req.controlBasis() != null
+                 ? req.controlBasis().stream().distinct().toList() : List.of();
+         BigDecimal pct = req.ownershipPercentage();
+-        if (pct.signum() == 0 && controls.isEmpty()) {
++        if (pct.signum() == 0 && controls.isEmpty() && !hasSeparateStake(req)) {
+             throw new InvalidWorkflowStateException(
+-                    "Ownership percentage must be greater than 0 unless a control basis is recorded for a natural person");
++                    "Ownership percentage must be greater than 0 unless a control basis or a separate profit, "
++                            + "dissolution, voting or convertible-debt stake is recorded");
+         }
+ 
+         BigDecimal siblings = existing.stream()
+@@ -152,12 +164,28 @@
+                     + siblings.add(pct).stripTrailingZeros().toPlainString() + "%, which exceeds 100%");
+         }
+ 
++        BoThresholdPolicy.Rule rule = thresholdPolicy.resolve(lp.getEntityType(), lp.getSector());
++        validateCriteriaFor(rule, req, individual);
++        String where = parent == null ? lp.getName() : parent.getName();
++        checkCriterionTotal("Profit entitlement", existing, parentId, req.profitPercentage(), pct,
++                OwnershipNode::getProfitPercentage, where);
++        checkCriterionTotal("Share of assets on dissolution", existing, parentId, req.dissolutionPercentage(), pct,
++                OwnershipNode::getDissolutionPercentage, where);
++        checkCriterionTotal("Voting rights", existing, parentId, req.votingPercentage(), pct,
++                OwnershipNode::getVotingPercentage, where);
++
+         OwnershipNode n = new OwnershipNode();
+         n.setLegalPersonId(legalPersonId);
+         n.setParentId(parentId);
+         n.setNodeType(req.nodeType());
+         n.setName(req.name().trim());
+         n.setOwnershipPercentage(pct);
++        n.setProfitPercentage(req.profitPercentage());
++        n.setDissolutionPercentage(req.dissolutionPercentage());
++        n.setVotingPercentage(req.votingPercentage());
++        n.setConvertibleDebtPercentage(req.convertibleDebtPercentage());
++        n.setPreferentialShares(Boolean.TRUE.equals(req.preferentialShares()) ? Boolean.TRUE : null);
++        n.setJointGroup(individual ? blankToNull(req.jointGroup()) : null);
+         n.setCreatedBy(currentUser.username());
+         if (individual) {
+             n.setIdNumber(blankToNull(req.idNumber()));
+@@ -259,7 +287,7 @@
+     public void requireFallbackAllowed(String legalPersonId) {
+         LegalPerson lp = legalPersonService.getById(legalPersonId);
+         Computation c = compute(lp, nodeRepository.findByLegalPersonIdOrderByCreatedAtAsc(legalPersonId));
+-        boolean anyUbo = c.holders.values().stream().anyMatch(h -> isUbo(h));
++        boolean anyUbo = c.holders.values().stream().anyMatch(h -> isUbo(h, c));
+         if (anyUbo) {
+             throw new InvalidWorkflowStateException("A natural-person UBO has been identified for this customer; "
+                     + "the senior managing official fallback does not apply");
+@@ -295,7 +323,7 @@
+         }
+ 
+         BigDecimal total = acc.total.min(HUNDRED).setScale(2, RoundingMode.HALF_UP);
+-        boolean ownership = acc.total.compareTo(threshold) >= 0;
++        boolean ownership = thresholdPolicy.qualifiesByOwnership(c.rule, effectiveStake(acc, c));
+         boolean control = !acc.controls.isEmpty();
+         OwnershipType type = total.signum() == 0
+                 ? (acc.controls.contains(ControlBasis.VOTING_RIGHTS) ? OwnershipType.VOTING_RIGHTS : OwnershipType.CONTROL_BY_OTHER_MEANS)
+@@ -307,7 +335,7 @@
+         if (chain.length() > 2000) {
+             chain = chain.substring(0, 1997) + "...";
+         }
+-        return new Derivation(chain, total, type, List.copyOf(acc.controls), ownership, control);
++        return new Derivation(chain, total, type, List.copyOf(acc.controls), ownership, control, c.rule.threshold());
+     }
+ 
+     @Transactional
+@@ -318,10 +346,6 @@
+         });
+     }
+ 
+-    public BigDecimal threshold() {
+-        return threshold;
+-    }
+-
+     /* ======================================================================
+        Calculation
+        ====================================================================== */
+@@ -332,6 +356,8 @@
+         String idNumber;
+         String nationality;
+         BigDecimal total = BigDecimal.ZERO;
++        Stake stake = Stake.zero();
++        String jointGroup;
+         int maxDepth = 0;
+         final List<OwnershipNode> nodes = new ArrayList<>();
+         final Set<ControlBasis> controls = EnumSet.noneOf(ControlBasis.class);
+@@ -346,10 +372,12 @@
+         final Map<String, HolderAcc> holders = new LinkedHashMap<>();
+         final Map<String, String> nodeToHolder = new HashMap<>();
+         final List<String> warnings = new ArrayList<>();
++        BoThresholdPolicy.Rule rule;
+     }
+ 
+     private Computation compute(LegalPerson lp, List<OwnershipNode> nodes) {
+         Computation c = new Computation();
++        c.rule = thresholdPolicy.resolve(lp.getEntityType(), lp.getSector());
+         for (OwnershipNode n : nodes) {
+             c.children.computeIfAbsent(n.getParentId() == null ? ROOT : n.getParentId(), k -> new ArrayList<>()).add(n);
+         }
+@@ -358,12 +386,13 @@
+                     + "down to the natural person(s).");
+             return c;
+         }
+-        walk(ROOT, lp.getName(), HUNDRED, lp.getName(), 0, c, new HashSet<>());
++        walk(ROOT, lp.getName(), Stake.root(), lp.getName(), 0, c, new HashSet<>());
+         return c;
+     }
+ 
+-    private void walk(String parentKey, String parentName, BigDecimal parentEffective, String parentChain,
++    private void walk(String parentKey, String parentName, Stake parentStake, String parentChain,
+                       int depth, Computation c, Set<String> visited) {
++        BigDecimal parentEffective = parentStake.ownership();
+         BigDecimal childSum = BigDecimal.ZERO;
+         for (OwnershipNode n : c.children.getOrDefault(parentKey, List.of())) {
+             if (!visited.add(n.getId())) {
+@@ -373,10 +402,13 @@
+             BigDecimal eff = parentEffective.multiply(n.getOwnershipPercentage())
+                     .divide(HUNDRED, CALC_SCALE, RoundingMode.HALF_UP);
+             String chain = parentChain + " → " + n.getName() + " (" + fmt(n.getOwnershipPercentage()) + "%)";
++            Stake stake = parentStake.through(n.getOwnershipPercentage(), n.getProfitPercentage(),
++                    n.getDissolutionPercentage(), n.getVotingPercentage(), n.getConvertibleDebtPercentage(),
++                    Boolean.TRUE.equals(n.getPreferentialShares()));
+             c.effective.put(n.getId(), eff);
+ 
+             if (n.getNodeType() == NodeType.COMPANY) {
+-                walk(n.getId(), n.getName(), eff, chain, depth + 1, c, visited);
++                walk(n.getId(), n.getName(), stake, chain, depth + 1, c, visited);
+             } else {
+                 String key = holderKey(n);
+                 HolderAcc acc = c.holders.computeIfAbsent(key, k -> {
+@@ -388,6 +420,10 @@
+                     return a;
+                 });
+                 acc.total = acc.total.add(eff);
++                acc.stake = acc.stake.plus(stake);
++                if (acc.jointGroup == null && n.getJointGroup() != null && !n.getJointGroup().isBlank()) {
++                    acc.jointGroup = n.getJointGroup().trim();
++                }
+                 acc.maxDepth = Math.max(acc.maxDepth, depth + 1);
+                 acc.nodes.add(n);
+                 acc.controls.addAll(parseControls(n.getControlBasis()));
+@@ -415,19 +451,45 @@
+         }
+     }
+ 
+-    private boolean isUbo(HolderAcc h) {
+-        return h.total.compareTo(threshold) >= 0 || !h.controls.isEmpty();
++    /**
++     * The stake tested against the rule: the person's own stake, or - where joint ownership applies and the
++     * person holds jointly - the combined stake of every member of their joint group. Preferential shares
++     * always stay personal to the holder.
++     */
++    private Stake effectiveStake(HolderAcc h, Computation c) {
++        if (!c.rule.jointAllowed() || h.jointGroup == null) {
++            return h.stake;
++        }
++        Stake sum = Stake.zero();
++        for (HolderAcc o : c.holders.values()) {
++            if (o.jointGroup != null && o.jointGroup.equalsIgnoreCase(h.jointGroup)) {
++                sum = sum.plus(o.stake);
++            }
++        }
++        return new Stake(sum.ownership(), sum.profit(), sum.dissolution(), sum.voting(), sum.convertibleDebt(),
++                h.stake.preferentialShares());
++    }
++
++    private boolean isUbo(HolderAcc h, Computation c) {
++        return thresholdPolicy.qualifiesByOwnership(c.rule, effectiveStake(h, c)) || !h.controls.isEmpty();
+     }
+ 
+-    private Holder toHolder(HolderAcc h, Map<String, String> boRefs) {
++    private Holder toHolder(HolderAcc h, Map<String, String> boRefs, Computation c) {
+         BigDecimal total = h.total.min(HUNDRED).setScale(2, RoundingMode.HALF_UP);
+         OwnershipNode linked = h.nodes.stream().filter(n -> n.getBeneficialOwnerId() != null).findFirst().orElse(null);
+         String boId = linked == null ? null : linked.getBeneficialOwnerId();
+         String ref = boId == null ? null : boRefs.get(boId);
++        Stake eff = effectiveStake(h, c);
++        Set<Criterion> met = thresholdPolicy.qualifyingCriteria(c.rule, eff);
++        boolean byControl = !h.controls.isEmpty();
++        boolean joint = c.rule.jointAllowed() && h.jointGroup != null;
+         return new Holder(h.key, h.name, h.idNumber, h.nationality, total,
+-                h.total.compareTo(threshold) >= 0, !h.controls.isEmpty(), isUbo(h),
++                !met.isEmpty(), byControl, !met.isEmpty() || byControl,
+                 List.copyOf(h.controls), List.copyOf(h.paths),
+-                (linked != null ? linked : h.nodes.get(0)).getId(), ref != null, boId, ref);
++                (linked != null ? linked : h.nodes.get(0)).getId(), ref != null, boId, ref,
++                joint ? h.jointGroup : null,
++                joint ? eff.ownership().min(HUNDRED).setScale(2, RoundingMode.HALF_UP) : null,
++                met.stream().map(Enum::name).toList());
+     }
+ 
+     private Map<String, String> boReferences(Computation c) {
+@@ -459,6 +521,97 @@
+     }
+ 
+     /* ======================================================================
++       Entity-specific rules
++       ====================================================================== */
++    private static boolean hasSeparateStake(OwnershipNodeRequest req) {
++        return positive(req.profitPercentage()) || positive(req.dissolutionPercentage())
++                || positive(req.votingPercentage()) || positive(req.convertibleDebtPercentage())
++                || Boolean.TRUE.equals(req.preferentialShares());
++    }
++
++    private static boolean positive(BigDecimal v) {
++        return v != null && v.signum() > 0;
++    }
++
++    /** Rejects holding criteria that do not apply to the customer's entity type, and misused joint groups. */
++    private static void validateCriteriaFor(BoThresholdPolicy.Rule rule, OwnershipNodeRequest req, boolean individual) {
++        Set<Criterion> crit = rule.criteria();
++        if (req.profitPercentage() != null && !crit.contains(Criterion.PROFIT)) {
++            throw new InvalidWorkflowStateException(
++                    "Profit entitlement is only recorded for partnerships and limited liability partnerships");
++        }
++        if (req.dissolutionPercentage() != null && !crit.contains(Criterion.DISSOLUTION)) {
++            throw new InvalidWorkflowStateException(
++                    "Share of assets on dissolution is only recorded for partnerships, LLPs and PPPs");
++        }
++        if (req.votingPercentage() != null && !crit.contains(Criterion.VOTING)) {
++            throw new InvalidWorkflowStateException(
++                    "Voting rights are only recorded separately for general and limited partnerships");
++        }
++        if (req.convertibleDebtPercentage() != null && req.convertibleDebtPercentage().signum() > 0
++                && !crit.contains(Criterion.CONVERTIBLE_DEBT)) {
++            throw new InvalidWorkflowStateException(
++                    "Convertible equity debt is only recorded for share companies and financial institutions");
++        }
++        if (Boolean.TRUE.equals(req.preferentialShares()) && !crit.contains(Criterion.PREFERENTIAL_SHARES)) {
++            throw new InvalidWorkflowStateException("Preferential shares apply only to share companies");
++        }
++        if (req.jointGroup() != null && !req.jointGroup().isBlank()) {
++            if (!rule.jointAllowed()) {
++                throw new InvalidWorkflowStateException(
++                        "Joint ownership applies only to share companies, private limited companies and financial institutions");
++            }
++            if (!individual) {
++                throw new InvalidWorkflowStateException("Only natural persons can be placed in a joint holding group");
++            }
++        }
++    }
++
++    /** Direct stakes of one criterion under the same parent must not exceed 100% (unspecified = ownership %). */
++    private static void checkCriterionTotal(String label, List<OwnershipNode> existing, String parentId,
++                                            BigDecimal newValue, BigDecimal newOwnership,
++                                            Function<OwnershipNode, BigDecimal> getter, String owner) {
++        BigDecimal incoming = newValue == null ? newOwnership : newValue;
++        BigDecimal total = existing.stream()
++                .filter(n -> Objects.equals(n.getParentId(), parentId))
++                .map(n -> getter.apply(n) == null ? n.getOwnershipPercentage() : getter.apply(n))
++                .reduce(BigDecimal.ZERO, BigDecimal::add)
++                .add(incoming);
++        if (total.compareTo(HUNDRED) > 0) {
++            throw new InvalidWorkflowStateException(label + " in '" + owner + "' would total "
++                    + total.stripTrailingZeros().toPlainString() + "%, which exceeds 100%");
++        }
++    }
++
++    /**
++     * Preconditions for submitting a beneficial-owner record for verification:
++     * foreign legal person -> country of registration + home-jurisdiction document;
++     * One Member PLC -> both the owner and the general manager / controlling person identified as BOs.
++     */
++    @Transactional(readOnly = true)
++    public void requireSubmissionPrerequisites(LegalPerson lp, boolean checkOwnerAndManager) {
++        if (lp.getEntityType() == EntityType.FOREIGN_LEGAL_PERSON) {
++            if (lp.getCountryOfIncorporation() == null || lp.getCountryOfIncorporation().isBlank()) {
++                throw new InvalidWorkflowStateException(
++                        "A foreign legal person requires its country of registration before a record can be submitted");
++            }
++            if (!documentRepository.existsByLegalPersonIdAndDocType(lp.getId(), LegalDocType.FOREIGN_HOME_DOCUMENT)) {
++                throw new InvalidWorkflowStateException("A foreign legal person's beneficial ownership information must be "
++                        + "supported by a home-jurisdiction document, attestation or authentication - upload it first");
++            }
++        }
++        if (checkOwnerAndManager) {
++            Computation c = compute(lp, nodeRepository.findByLegalPersonIdOrderByCreatedAtAsc(lp.getId()));
++            if (c.rule.mode() == BoThresholdPolicy.Mode.OWNER_PLUS_MANAGER
++                    && c.holders.values().stream().filter(h -> isUbo(h, c)).count() < 2) {
++                throw new InvalidWorkflowStateException("A one member PLC needs both the owner and the general manager "
++                        + "(or other controlling person) identified as beneficial owners in the ownership structure "
++                        + "before a record can be submitted");
++            }
++        }
++    }
++
++    /* ======================================================================
+        Helpers
+        ====================================================================== */
+     /** The same person in several branches is aggregated by ID number, falling back to name. */
+diff -ruN be_orig/src/test/java/dashen/bank/boivs/service/BoThresholdPolicyTest.java be/backend/src/test/java/dashen/bank/boivs/service/BoThresholdPolicyTest.java
+--- be_orig/src/test/java/dashen/bank/boivs/service/BoThresholdPolicyTest.java	1970-01-01 00:00:00.000000000 +0000
++++ be/backend/src/test/java/dashen/bank/boivs/service/BoThresholdPolicyTest.java	2026-10-31 00:10:34.061928901 +0000
+@@ -0,0 +1,122 @@
++package dashen.bank.boivs.service;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import java.math.BigDecimal;
++
++import org.junit.jupiter.api.Test;
++
++import dashen.bank.boivs.domain.enums.EntityType;
++import dashen.bank.boivs.domain.enums.Sector;
++import dashen.bank.boivs.service.BoThresholdPolicy.Mode;
++import dashen.bank.boivs.service.BoThresholdPolicy.Stake;
++
++class BoThresholdPolicyTest {
++
++    private final BoThresholdPolicy policy = new BoThresholdPolicy(new BigDecimal("25"));
++
++    private static BigDecimal d(String v) {
++        return new BigDecimal(v);
++    }
++
++    private static Stake direct(String own, String profit, String dissolution, String voting, String debt,
++                                boolean preferential) {
++        return Stake.root().through(d(own), profit == null ? null : d(profit), dissolution == null ? null : d(dissolution),
++                voting == null ? null : d(voting), debt == null ? null : d(debt), preferential);
++    }
++
++    @Test
++    void thresholdsPerEntityTypeAndSector() {
++        assertEquals(0, d("10").compareTo(policy.resolve(EntityType.SHARE_COMPANY, Sector.OTHER).threshold()));
++        assertEquals(0, d("10").compareTo(policy.resolve(EntityType.SHARE_COMPANY, null).threshold()));
++        for (Sector s : new Sector[] {Sector.MINING, Sector.REAL_ESTATE, Sector.MOTOR_DEALERSHIP, Sector.IMPORT_EXPORT}) {
++            assertEquals(0, d("5").compareTo(policy.resolve(EntityType.SHARE_COMPANY, s).threshold()), s.name());
++        }
++        assertEquals(0, d("5").compareTo(policy.resolve(EntityType.PRIVATE_LIMITED_COMPANY, null).threshold()));
++        assertEquals(0, d("2").compareTo(policy.resolve(EntityType.FINANCIAL_INSTITUTION, null).threshold()));
++        for (EntityType t : new EntityType[] {EntityType.GENERAL_PARTNERSHIP, EntityType.LIMITED_PARTNERSHIP,
++                EntityType.LIMITED_LIABILITY_PARTNERSHIP, EntityType.PPP}) {
++            assertEquals(0, d("25").compareTo(policy.resolve(t, null).threshold()), t.name());
++        }
++    }
++
++    @Test
++    void uncoveredTypesAndForeignUseFallback() {
++        for (EntityType t : new EntityType[] {EntityType.FOREIGN_LEGAL_PERSON, EntityType.PUBLIC_LIMITED_COMPANY,
++                EntityType.TRUST}) {
++            assertEquals(Mode.FALLBACK, policy.resolve(t, null).mode(), t.name());
++            assertEquals(0, d("25").compareTo(policy.resolve(t, null).threshold()), t.name());
++        }
++    }
++
++    @Test
++    void inclusiveThresholdAndRoundingTolerance() {
++        var rule = policy.resolve(EntityType.SHARE_COMPANY, Sector.OTHER);
++        assertTrue(policy.qualifiesByOwnership(rule, d("10")));
++        assertTrue(policy.qualifiesByOwnership(rule, d("9.99999999")));
++        assertFalse(policy.qualifiesByOwnership(rule, d("9.9")));
++    }
++
++    @Test
++    void indirectHoldingIsMultipliedThroughTheChainAndAddedToDirect() {
++        var rule = policy.resolve(EntityType.SHARE_COMPANY, Sector.OTHER);
++        Stake holdco = Stake.root().through(d("20"), null, null, null, null, false);
++        Stake indirect = holdco.through(d("50"), null, null, null, null, false); // 50% of a 20% holder = 10%
++        assertEquals(0, d("10").compareTo(indirect.ownership()));
++        assertTrue(policy.qualifiesByOwnership(rule, indirect));
++        assertTrue(policy.qualifiesByOwnership(rule, direct("4", null, null, null, null, false).plus(indirect)));
++        assertFalse(policy.qualifiesByOwnership(rule, direct("4", null, null, null, null, false)));
++    }
++
++    @Test
++    void preferentialSharesAndConvertibleDebtOnlyWhereTheRuleHasThem() {
++        var share = policy.resolve(EntityType.SHARE_COMPANY, Sector.OTHER);
++        var mining = policy.resolve(EntityType.SHARE_COMPANY, Sector.MINING);
++        var plc = policy.resolve(EntityType.PRIVATE_LIMITED_COMPANY, null);
++        var fi = policy.resolve(EntityType.FINANCIAL_INSTITUTION, null);
++        assertTrue(policy.qualifiesByOwnership(share, direct("1", null, null, null, null, true)));
++        assertFalse(policy.qualifiesByOwnership(plc, direct("1", null, null, null, null, true)));
++        assertTrue(policy.qualifiesByOwnership(share, direct("0", null, null, null, "10", false)));
++        assertFalse(policy.qualifiesByOwnership(share, direct("0", null, null, null, "9", false)));
++        assertTrue(policy.qualifiesByOwnership(mining, direct("0", null, null, null, "5", false)));
++        assertTrue(policy.qualifiesByOwnership(fi, direct("0", null, null, null, "2", false)));
++        assertFalse(policy.qualifiesByOwnership(plc, direct("0", null, null, null, "50", false)));
++    }
++
++    @Test
++    void partnershipsTestProfitDissolutionAndVotingSeparately() {
++        var gp = policy.resolve(EntityType.GENERAL_PARTNERSHIP, null);
++        assertTrue(policy.qualifiesByOwnership(gp, direct("10", "10", "10", "25", null, false)));
++        assertTrue(policy.qualifiesByOwnership(gp, direct("10", "10", "30", "10", null, false)));
++        assertFalse(policy.qualifiesByOwnership(gp, direct("30", "10", "10", "10", null, false)));
++        assertTrue(policy.qualifiesByOwnership(gp, direct("30", null, null, null, null, false))); // defaults follow ownership
++        var llp = policy.resolve(EntityType.LIMITED_LIABILITY_PARTNERSHIP, null);
++        assertFalse(policy.qualifiesByOwnership(llp, direct("10", "10", "10", "90", null, false))); // voting not an LLP test
++        assertTrue(policy.qualifiesByOwnership(llp, direct("10", "25", "10", null, null, false)));
++        var ppp = policy.resolve(EntityType.PPP, null);
++        assertTrue(policy.qualifiesByOwnership(ppp, direct("10", null, "25", null, null, false)));
++    }
++
++    @Test
++    void jointHoldingFlagsAndCombinedStake() {
++        var share = policy.resolve(EntityType.SHARE_COMPANY, Sector.OTHER);
++        assertTrue(share.jointAllowed());
++        assertTrue(policy.resolve(EntityType.PRIVATE_LIMITED_COMPANY, null).jointAllowed());
++        assertTrue(policy.resolve(EntityType.FINANCIAL_INSTITUTION, null).jointAllowed());
++        assertFalse(policy.resolve(EntityType.GENERAL_PARTNERSHIP, null).jointAllowed());
++        Stake combined = direct("6", null, null, null, null, false).plus(direct("5", null, null, null, null, false));
++        assertTrue(policy.qualifiesByOwnership(share, combined));
++    }
++
++    @Test
++    void oneMemberPlcOwnerQualifiesByAnyHolding() {
++        var rule = policy.resolve(EntityType.ONE_MEMBER_PLC, null);
++        assertEquals(Mode.OWNER_PLUS_MANAGER, rule.mode());
++        assertNull(rule.threshold());
++        assertTrue(policy.qualifiesByOwnership(rule, Stake.root()));
++        assertFalse(policy.qualifiesByOwnership(rule, Stake.zero()));
++    }
++}
