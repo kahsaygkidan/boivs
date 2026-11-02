@@ -1,0 +1,105 @@
+/* Dashen UBO Reports — page and ownership diagram styles */
+.er-root {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 28px clamp(16px, 2.4vw, 36px) 48px;
+  box-sizing: border-box;
+  --er-primary: #0b2a5b;
+  --er-soft: rgba(11, 42, 91, .08);
+  --er-border: #e4eaf2;
+  --er-alt: #f7f9fc;
+}
+.er-root .er-head { padding-bottom: 18px; border-bottom: 1px solid #e7edf5; }
+.er-root .er-eyebrow { color: #2563eb; letter-spacing: .11em; }
+.er-root .er-title { color: #0b2a5b; font-size: clamp(24px, 2.2vw, 30px); }
+.er-root .er-meta { gap: 8px 16px; }
+.er-root .er-btn--primary { background: #0b2a5b; border-color: #0b2a5b; box-shadow: 0 3px 8px rgba(11,42,91,.14); }
+.er-root .er-btn--primary:hover:not(:disabled) { background: #123a7a; border-color: #123a7a; }
+.er-root .er-tabs { scrollbar-width: thin; }
+.er-root .er-tab { padding: 13px 16px; }
+.er-root .er-tab--active { color: #0b2a5b; }
+.er-root .er-tab--active::after { background: #0b2a5b; height: 3px; }
+.er-root .er-filters { border-radius: 14px; box-shadow: 0 4px 14px rgba(15,23,42,.035); }
+.er-root .er-input:focus { outline: 3px solid rgba(37,99,235,.12); border-color: #2563eb; }
+.er-root .er-kpi, .er-root .er-card { border-color: #e4eaf2; box-shadow: 0 2px 8px rgba(15,23,42,.035); }
+.er-root .er-kpi { border-radius: 14px; }
+.er-root .er-kpi--neutral { --k:#0b2a5b; --ks:rgba(11,42,91,.09); }
+.er-root .er-kpi--info { --k:#2563eb; --ks:rgba(37,99,235,.09); }
+.er-root .er-card { border-radius: 14px; }
+.er-root .er-card__head { background: linear-gradient(180deg,#fff,#fcfdff); }
+.er-root .er-card__title { color: #142b4d; }
+.er-root .er-table th { background: #f3f6fb; color: #53647b; }
+.er-root .er-table tbody tr:focus-visible td { outline: 2px solid #2563eb; outline-offset: -2px; }
+.er-root .er-table tbody tr.er-row { cursor: pointer; }
+.er-root .er-chip--info { color: #17458d; background: #eaf1ff; }
+.er-root .er-summary { background: #f6f8fc; border-color: #e4eaf2; }
+.er-root .er-banner:not(.er-banner--err):not(.er-banner--warn) { background: #f4f7fc; border-color: #e0e8f4; }
+.er-root button:focus-visible, .er-root input:focus-visible, .er-root select:focus-visible {
+  outline: 3px solid rgba(37,99,235,.22); outline-offset: 2px;
+}
+.er-root .er-empty-card { min-height: 180px; }
+
+/* Ownership structure diagram */
+.er-root .rep-tree { width: 100%; overflow-x: auto; padding: 8px 4px 18px; }
+.er-root .rep-tree__stage { min-width: max-content; display: flex; flex-direction: column; align-items: center; }
+.er-root .rep-tree__branch-row { position: relative; display: flex; align-items: flex-start; justify-content: center; gap: 22px; padding: 0 14px; }
+.er-root .rep-tree__branch { display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 150px; }
+.er-root .rep-tree__children { display: flex; align-items: flex-start; justify-content: center; flex-wrap: nowrap; gap: 14px; padding: 0 8px; }
+.er-root .rep-tree-node {
+  display: flex; align-items: center; gap: 9px; width: 180px; min-height: 54px;
+  padding: 10px 12px; box-sizing: border-box; border: 1px solid #dbe4f0;
+  border-radius: 11px; background: #fff; box-shadow: 0 3px 9px rgba(15,23,42,.045);
+}
+.er-root .rep-tree-node__icon {
+  display: inline-flex; flex: 0 0 28px; width: 28px; height: 28px; align-items: center;
+  justify-content: center; border-radius: 8px; color: #0b2a5b; background: #edf3fb;
+}
+.er-root .rep-tree-node__label { max-width: 125px; overflow-wrap: anywhere; font-size: 12px; font-weight: 700; color: #172b4d; }
+.er-root .rep-tree-node__sub { margin-top: 3px; font-size: 10.5px; color: #64748b; }
+.er-root .rep-tree-node--entity { border-color: #0b2a5b; background: #0b2a5b; }
+.er-root .rep-tree-node--entity .rep-tree-node__icon { color: #fff; background: rgba(255,255,255,.14); }
+.er-root .rep-tree-node--entity .rep-tree-node__label,
+.er-root .rep-tree-node--entity .rep-tree-node__sub { color: #fff; }
+.er-root .rep-tree-node--intermediate { border-color: #bfd2f2; background: #f5f8ff; }
+.er-root .rep-tree-node--intermediate .rep-tree-node__icon { color: #2563eb; background: #e6efff; }
+.er-root .rep-tree-node--ubo-direct { border-color: #a7dfc8; background: #f0fbf6; }
+.er-root .rep-tree-node--ubo-direct .rep-tree-node__icon { color: #047857; background: #d9f4e8; }
+.er-root .rep-tree-node--ubo-indirect { border-color: #c9d5f5; background: #f5f7ff; }
+.er-root .rep-tree-node--ubo-indirect .rep-tree-node__icon { color: #4f46a5; background: #e9eaff; }
+.er-root .rep-tree-node--fallback { border-color: #f2d19a; background: #fffbeb; }
+.er-root .rep-tree-node--fallback .rep-tree-node__icon { color: #b45309; background: #fef0c7; }
+.er-root .rep-tree__vline { width: 1px; background: #b8c6d9; flex: none; }
+.er-root .rep-tree__vline--tall { height: 24px; }
+.er-root .rep-tree__vline--med { height: 18px; }
+.er-root .rep-tree__vline--short { height: 14px; }
+.er-root .rep-tree__hconnector { position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: #b8c6d9; }
+.er-root .rep-tree__cap { position: absolute; top: 0; width: 1px; height: 12px; background: #b8c6d9; }
+.er-root .rep-tree__cap--left { left: 8%; }
+.er-root .rep-tree__cap--right { right: 8%; }
+
+@media (max-width: 760px) {
+  .er-root { padding: 18px 12px 32px; }
+  .er-root .er-head { align-items: flex-start; }
+  .er-root .er-actions { width: 100%; }
+  .er-root .er-actions > * { width: 100%; }
+  .er-root .er-actions .er-btn { width: 100%; justify-content: center; }
+  .er-root .er-donut { height: auto; min-height: 220px; padding: 12px; gap: 12px; }
+  .er-root .er-donut__chart { flex-basis: 150px; height: 150px; }
+  .er-root .er-donut__chart svg { max-width: 100%; }
+  .er-root .er-tablewrap { max-height: 460px; }
+}
+@media (max-width: 480px) {
+  .er-root .er-donut { flex-direction: column; }
+  .er-root .er-legend { width: 100%; }
+  .er-root .er-kpis { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .er-root .er-kpi { padding: 13px 12px; }
+  .er-root .er-kpi__value { font-size: 25px; }
+  .er-root .er-kpi__label { font-size: 10px; }
+  .er-root .er-card__head { padding: 14px; }
+}
+@media print {
+  .er-root { max-width: none; padding: 0; }
+  .er-root .er-card, .er-root .er-kpi { box-shadow: none; }
+  .er-root .rep-tree { overflow: visible; }
+}
