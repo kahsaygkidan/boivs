@@ -1,0 +1,484 @@
+/* ==========================================================================
+   Dashen BOIVS — Modern Topbar UI/UX refinement
+   Append after the existing Topbar styles.
+   Keeps every tb-* selector and existing JSX contract intact.
+   ========================================================================== */
+
+.tb-root {
+  --tb-blue: #3157dc;
+  --tb-blue-hover: #2749c7;
+  --tb-navy: #14216b;
+  --tb-surface: #ffffff;
+  --tb-alt: #f5f7fc;
+  --tb-border: #e5e9f2;
+  --tb-text: #172033;
+  --tb-muted: #667085;
+  --tb-faint: #98a2b3;
+
+  min-height: 66px;
+  padding: 0 20px 0 24px;
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 3px 14px rgba(15, 23, 42, 0.035);
+  isolation: isolate;
+}
+
+.tb-root--floating {
+  top: 10px;
+  margin: 10px 12px 0;
+  min-height: 62px;
+  padding-left: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.075),
+    0 2px 6px rgba(15, 23, 42, 0.035);
+}
+
+.tb-lead {
+  flex: 1 1 auto;
+  gap: 11px;
+  overflow: hidden;
+}
+
+.tb-crumb {
+  color: #8993a7;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.015em;
+}
+
+.tb-sep {
+  color: #c4ccda;
+  font-size: 16px;
+}
+
+.tb-title {
+  color: #172033;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.35;
+}
+
+.tb-right {
+  gap: 12px;
+}
+
+.tb-divider {
+  height: 26px;
+  margin: 0 2px;
+  background: #e8ecf3;
+}
+
+.tb-avatar {
+  width: 37px;
+  height: 37px;
+  border: 2px solid #fff;
+  background: linear-gradient(145deg, #4168ed 0%, #243b9b 100%);
+  box-shadow: 0 0 0 1px rgba(49, 87, 220, 0.16), 0 3px 8px rgba(31, 55, 145, 0.15);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.tb-user {
+  min-height: 44px;
+  gap: 10px;
+  padding: 4px 10px 4px 5px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.tb-user:hover,
+.tb-user[aria-expanded="true"] {
+  background: #f7f8fc;
+  border-color: #e8ecf4;
+}
+
+.tb-user:focus-visible {
+  outline: 3px solid rgba(49, 87, 220, 0.22);
+  outline-offset: 2px;
+}
+
+.tb-user__text {
+  gap: 3px;
+}
+
+.tb-user__name {
+  color: #202b3e;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.tb-user__role {
+  color: #7b8799;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tb-chevron {
+  color: #8490a3;
+}
+
+.tb-chevron svg {
+  width: 15px;
+  height: 15px;
+}
+
+.tb-menu-wrap {
+  position: relative;
+  z-index: 60;
+}
+
+.tb-menu {
+  z-index: 70;
+  top: calc(100% + 9px);
+  min-width: 268px;
+  padding: 7px;
+  border: 1px solid #e6eaf2;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow:
+    0 20px 48px rgba(15, 23, 42, 0.14),
+    0 3px 10px rgba(15, 23, 42, 0.045);
+  animation: tb-pop 0.16s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.tb-menu__head {
+  gap: 11px;
+  padding: 11px 10px 12px;
+}
+
+.tb-menu__name {
+  color: #1d2939;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.tb-menu__roles {
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.tb-menu__none {
+  color: #8a94a6;
+  font-size: 11.5px;
+}
+
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 2px 8px;
+  border: 1px solid rgba(49, 87, 220, 0.10);
+  border-radius: 999px;
+  color: #2e4fc4;
+  background: #f0f3ff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.tb-menu__sep {
+  height: 1px;
+  margin: 5px 2px;
+  background: #edf0f5;
+}
+
+.tb-menu__item {
+  min-height: 40px;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  color: #344054;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.tb-menu__item:hover,
+.tb-menu__item:focus-visible {
+  color: #1f3fae;
+  background: #f3f6ff;
+  outline: none;
+}
+
+.tb-menu__item:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(49, 87, 220, 0.2);
+}
+
+.tb-menu__item--danger {
+  color: #c03935;
+}
+
+.tb-menu__item--danger:hover,
+.tb-menu__item--danger:focus-visible {
+  color: #a92e2a;
+  background: #fff3f2;
+}
+
+/* Compact screens */
+@media (max-width: 900px) {
+  .tb-root {
+    gap: 12px;
+    padding-left: 18px;
+  }
+
+  .tb-crumb,
+  .tb-sep {
+    display: none;
+  }
+
+  .tb-title {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 720px) {
+  .tb-root {
+    min-height: 58px;
+    gap: 8px;
+    padding: 0 10px 0 14px;
+  }
+
+  .tb-root--floating {
+    top: 8px;
+    min-height: 56px;
+    margin: 8px 8px 0;
+    padding: 0 9px 0 13px;
+    border-radius: 15px;
+  }
+
+  .tb-lead {
+    gap: 7px;
+  }
+
+  .tb-title {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .tb-right {
+    gap: 7px;
+  }
+
+  .tb-user {
+    min-height: 40px;
+    padding: 2px;
+    border-radius: 11px;
+  }
+
+  .tb-user__text,
+  .tb-chevron,
+  .tb-divider {
+    display: none;
+  }
+
+  .tb-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .tb-menu {
+    position: fixed;
+    top: 68px;
+    right: 10px;
+    left: auto;
+    width: min(290px, calc(100vw - 20px));
+    min-width: 0;
+    max-height: min(70vh, 480px);
+    overflow-y: auto;
+    border-radius: 14px;
+  }
+
+  .tb-root--floating .tb-menu {
+    top: 72px;
+  }
+}
+
+@media (max-width: 380px) {
+  .tb-root {
+    padding-right: 8px;
+    padding-left: 11px;
+  }
+
+  .tb-title {
+    font-size: 13px;
+  }
+
+  .tb-menu {
+    right: 8px;
+    width: calc(100vw - 16px);
+  }
+}
+
+/* Motion and print accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .tb-menu {
+    animation: none;
+  }
+
+  .tb-user,
+  .tb-chevron svg,
+  .tb-menu__item {
+    transition: none;
+  }
+}
+
+@media print {
+  .tb-root {
+    display: none !important;
+  }
+}
+
+
+/* ==========================================================================
+   Topbar actions — right alignment + subtle Dashen blue treatment
+   Add matching class names to the notification and sign-out JSX elements:
+   .tb-notification and .tb-signout
+   ========================================================================== */
+
+.tb-root {
+  --tb-action-blue: #3157dc;
+  --tb-action-blue-soft: rgba(49, 87, 220, 0.075);
+  --tb-action-blue-hover: rgba(49, 87, 220, 0.13);
+}
+
+/* Keep all action controls grouped at the far right */
+.tb-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Shared action-button treatment */
+.tb-notification,
+.tb-signout {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid rgba(49, 87, 220, 0.10);
+  border-radius: 11px;
+  background: var(--tb-action-blue-soft);
+  color: #2949b8;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.tb-notification:hover,
+.tb-signout:hover {
+  background: var(--tb-action-blue-hover);
+  border-color: rgba(49, 87, 220, 0.22);
+  color: #203fae;
+}
+
+.tb-notification:focus-visible,
+.tb-signout:focus-visible {
+  outline: 3px solid rgba(49, 87, 220, 0.22);
+  outline-offset: 2px;
+}
+
+.tb-notification:active,
+.tb-signout:active {
+  transform: translateY(1px);
+}
+
+.tb-notification svg,
+.tb-signout svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+/* Notification count, if the JSX renders a badge */
+.tb-notification__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #3157dc;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+/* Sign-out is visually distinct, but remains within the soft-blue palette */
+.tb-signout {
+  background: rgba(49, 87, 220, 0.09);
+  color: #2949b8;
+}
+
+.tb-signout:hover {
+  background: rgba(49, 87, 220, 0.15);
+  color: #1f3fae;
+}
+
+/* Optional icon-only notification button */
+.tb-notification--icon {
+  width: 40px;
+  padding: 0;
+}
+
+/* Mobile: keep actions on the right and avoid squeezing the page title */
+@media (max-width: 720px) {
+  .tb-right {
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .tb-notification,
+  .tb-signout {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 10px;
+  }
+
+  .tb-notification--icon {
+    width: 36px;
+    padding: 0;
+  }
+
+  .tb-signout__label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-notification,
+  .tb-signout {
+    transition: none;
+  }
+}
