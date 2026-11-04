@@ -1,0 +1,105 @@
+/* ==========================================================================
+   Sidebar — Dashen navy with a blue glow (scoped with the sb- prefix)
+   Expanded 256px / collapsed 76px. Imported by components/Sidebar.jsx
+   ========================================================================== */
+
+.sb-root {
+  --sb-blue: #3157dc; --sb-blue-2: #2a47b9; --sb-line: rgba(255, 255, 255, .10);
+  position: sticky; top: 0; z-index: 30; flex-shrink: 0;
+  display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
+  height: 100vh; height: 100dvh;
+  background: linear-gradient(180deg, #14216b 0%, #0f1b5a 45%, #0a1442 100%);
+  color: #eef1ff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: width .22s cubic-bezier(.2, .8, .2, 1), min-width .22s cubic-bezier(.2, .8, .2, 1);
+}
+.sb-root--floating {
+  top: 12px; margin: 12px 0 12px 12px; height: calc(100vh - 24px); height: calc(100dvh - 24px);
+  border-radius: 26px; border: 1px solid rgba(255, 255, 255, .07);
+  box-shadow: 0 20px 44px rgba(10, 20, 66, .30), 0 2px 8px rgba(10, 20, 66, .20);
+}
+.sb-root:not(.sb-root--floating) { border-right: 1px solid rgba(255, 255, 255, .08); }
+
+/* Blue glow in the top-right corner */
+.sb-root::before, .sb-root::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; }
+.sb-root::before { top: -92px; right: -92px; width: 230px; height: 230px;
+  background: radial-gradient(circle at 32% 68%, rgba(56, 98, 240, .85) 0%, rgba(56, 98, 240, .38) 42%, rgba(56, 98, 240, 0) 70%); }
+.sb-root::after { top: -58px; right: -58px; width: 170px; height: 170px; border: 1px solid rgba(130, 168, 255, .22); }
+.sb-root--collapsed::before { top: -70px; right: -70px; width: 160px; height: 160px; }
+.sb-root--collapsed::after { display: none; }
+.sb-root > * { position: relative; z-index: 1; }
+
+/* Brand */
+.sb-brand { display: flex; align-items: center; gap: 12px; padding: 22px 22px 18px; min-height: 76px; }
+.sb-logo { display: block; flex-shrink: 0; height: 36px; width: auto; max-width: 150px; object-fit: contain; }
+.sb-logo--wide { height: 44px; max-width: 172px; }
+.sb-brand__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-brand__name { font-size: 17px; font-weight: 750; letter-spacing: -.015em; color: #fff; white-space: nowrap; }
+.sb-brand__sub { margin-top: 2px; font-size: 10.5px; font-weight: 500; color: #9db0f0; white-space: nowrap; }
+.sb-root--collapsed .sb-brand { justify-content: center; padding: 22px 0 18px; }
+.sb-root--collapsed .sb-logo { width: 38px; height: 36px; object-fit: cover; object-position: left center; }
+
+/* Navigation */
+.sb-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 2px 12px 12px; scrollbar-width: none; }
+.sb-nav::-webkit-scrollbar { display: none; }
+.sb-group { display: flex; align-items: center; gap: 12px; padding: 14px 10px 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7f93da; white-space: nowrap; user-select: none; }
+.sb-group:first-child { padding-top: 6px; }
+.sb-group::after { content: ''; flex: 1; height: 1px; background: var(--sb-line); }
+.sb-root--collapsed .sb-group { height: 1px; margin: 12px 10px; padding: 0; background: var(--sb-line); font-size: 0; }
+.sb-root--collapsed .sb-group::after { display: none; }
+.sb-root--collapsed .sb-group:first-child { display: none; }
+
+.sb-item {
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; min-height: 44px;
+  margin-bottom: 4px; padding: 0 14px 0 18px; border: 0; border-radius: 13px;
+  background: transparent; color: #e4e9ff; cursor: pointer; text-align: left;
+  font: inherit; font-size: 13.5px; font-weight: 500; letter-spacing: -.005em;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.sb-item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.sb-item:focus-visible { outline: 2px solid #8fb0ff; outline-offset: 2px; }
+.sb-item--active, .sb-item--active:hover {
+  color: #fff; font-weight: 650;
+  background: linear-gradient(90deg, var(--sb-blue) 0%, var(--sb-blue-2) 100%);
+  box-shadow: 0 8px 20px rgba(42, 71, 185, .42), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+.sb-item--active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 13px 0 0 13px; background: #fff; }
+.sb-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; }
+.sb-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-chev { display: inline-flex; flex-shrink: 0; margin-right: -2px; opacity: .95; }
+
+.sb-badge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 6px;
+  background: var(--sb-blue); color: #fff; font-size: 11.5px; font-weight: 750; font-variant-numeric: tabular-nums; box-shadow: 0 2px 6px rgba(49, 87, 220, .45); }
+.sb-item--active .sb-badge { background: rgba(255, 255, 255, .22); box-shadow: none; }
+.sb-tag { flex-shrink: 0; padding: 3px 10px; border-radius: 7px; background: rgba(122, 134, 230, .30); color: #dfe4ff; font-size: 11px; font-weight: 600; letter-spacing: .01em; }
+
+/* Footer */
+.sb-foot { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 16px; background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.015)); border-top: 1px solid rgba(255, 255, 255, .08); border-radius: 22px 22px 0 0; }
+.sb-root--floating .sb-foot { border-radius: 22px 22px 26px 26px; }
+.sb-reg { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 8px 14px; border-radius: 16px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); }
+.sb-reg__icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; color: #fff;
+  background: radial-gradient(circle at 35% 30%, #22358c, #121f63); box-shadow: inset 0 0 0 1.5px rgba(150, 175, 255, .35); }
+.sb-reg__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-reg__label { font-size: 10.5px; font-weight: 500; color: #9db0f0; }
+.sb-reg__value { font-size: 14px; font-weight: 750; letter-spacing: -.01em; color: #fff; white-space: nowrap; }
+
+.sb-toggle { display: flex; align-items: center; justify-content: flex-start; gap: 14px; width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 18px; border: 0; border-radius: 16px;
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); color: #fff; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 550; transition: background .15s ease; }
+.sb-toggle svg { color: #8fb0ff; flex-shrink: 0; }
+.sb-toggle:hover { background: rgba(255, 255, 255, .12); }
+.sb-toggle:focus-visible { outline: 2px solid #8fb0ff; outline-offset: 2px; }
+
+/* Collapsed state (76px) */
+.sb-root--collapsed .sb-nav { padding: 2px 15px 12px; }
+.sb-root--collapsed .sb-item { justify-content: center; width: 46px; min-height: 44px; margin: 0 auto 6px; padding: 0; border-radius: 14px; }
+.sb-root--collapsed .sb-item--active::before { display: none; }
+.sb-root--collapsed .sb-item--stacked { flex-direction: column; gap: 4px; height: auto; padding: 9px 0 6px; }
+.sb-badge--float { position: absolute; top: -4px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 10.5px; border: 2px solid #0f1b5a; box-sizing: content-box; }
+.sb-tag--stack { padding: 1px 6px; border-radius: 6px; font-size: 9.5px; }
+.sb-root--collapsed .sb-foot { align-items: center; padding: 14px 15px 16px; }
+.sb-root--collapsed .sb-reg { justify-content: center; width: 46px; min-height: 46px; padding: 0; border-radius: 14px; }
+.sb-root--collapsed .sb-toggle { justify-content: center; width: 46px; min-height: 46px; padding: 0; border-radius: 14px; }
+
+@media print { .sb-root { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .sb-root, .sb-item, .sb-toggle { transition: none; } }
