@@ -1,0 +1,620 @@
+/* ==========================================================================
+   Sidebar — Dashen navy with a blue glow (scoped with the sb- prefix)
+   Expanded 256px / collapsed 76px. Imported by components/Sidebar.jsx
+   ========================================================================== */
+
+.sb-root {
+  --sb-blue: #3157dc; --sb-blue-2: #2a47b9; --sb-line: rgba(255, 255, 255, .10);
+  position: sticky; top: 0; z-index: 30; flex-shrink: 0;
+  display: flex; flex-direction: column;  overflow: hidden;
+  height: 100vh; height: 100dvh;
+  background: linear-gradient(180deg, #14216b 0%, #0f1b5a 45%, #0a1442 100%);
+  color: #eef1ff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: width .22s cubic-bezier(.2, .8, .2, 1), min-width .22s cubic-bezier(.2, .8, .2, 1);
+}
+.sb-root--floating {
+  top: 12px; margin: 12px 0 12px 12px; height: calc(100vh - 24px); height: calc(100dvh - 24px);
+  border-radius: 26px; border: 1px solid rgba(255, 255, 255, .07);
+  box-shadow: 0 20px 44px rgba(10, 20, 66, .30), 0 2px 8px rgba(10, 20, 66, .20);
+}
+.sb-root:not(.sb-root--floating) { border-right: 1px solid rgba(255, 255, 255, .08); }
+
+/* Blue glow in the top-right corner */
+.sb-root::before, .sb-root::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; }
+.sb-root::before { top: -92px; right: -92px; width: 230px; height: 230px;
+  background: radial-gradient(circle at 32% 68%, rgba(56, 98, 240, .85) 0%, rgba(56, 98, 240, .38) 42%, rgba(56, 98, 240, 0) 70%); }
+.sb-root::after { top: -58px; right: -58px; width: 170px; height: 170px; border: 1px solid rgba(130, 168, 255, .22); }
+.sb-root--collapsed::before { top: -70px; right: -70px; width: 160px; height: 160px; }
+.sb-root--collapsed::after { display: none; }
+.sb-root > * { position: relative; z-index: 1; }
+
+/* Brand */
+.sb-brand { display: flex; align-items: center; gap: 12px; padding: 22px 22px 18px; min-height: 76px; }
+.sb-logo { display: block; flex-shrink: 0; height: 36px; width: auto; max-width: 150px; object-fit: contain; }
+.sb-logo--wide { height: 44px; max-width: 172px; }
+.sb-brand__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-brand__name { font-size: 17px; font-weight: 750; letter-spacing: -.015em; color: #fff; white-space: nowrap; }
+.sb-brand__sub { margin-top: 2px; font-size: 10.5px; font-weight: 500; color: #9db0f0; white-space: nowrap; }
+.sb-root--collapsed .sb-brand { justify-content: center; padding: 22px 0 18px; }
+.sb-root--collapsed .sb-logo { width: 38px; height: 36px; object-fit: cover; object-position: left center; }
+
+/* Navigation */
+.sb-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 2px 12px 12px; scrollbar-width: none; }
+.sb-nav::-webkit-scrollbar { display: none; }
+.sb-group { display: flex; align-items: center; gap: 12px; padding: 14px 10px 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7f93da; white-space: nowrap; user-select: none; }
+.sb-group:first-child { padding-top: 6px; }
+.sb-group::after { content: ''; flex: 1; height: 1px; background: var(--sb-line); }
+.sb-root--collapsed .sb-group { height: 1px; margin: 12px 10px; padding: 0; background: var(--sb-line); font-size: 0; }
+.sb-root--collapsed .sb-group::after { display: none; }
+.sb-root--collapsed .sb-group:first-child { display: none; }
+
+.sb-item {
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; min-height: 44px;
+  margin-bottom: 4px; padding: 0 14px 0 18px; border: 0; border-radius: 13px;
+  background: transparent; color: #e4e9ff; cursor: pointer; text-align: left;
+  font: inherit; font-size: 13.5px; font-weight: 500; letter-spacing: -.005em;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.sb-item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.sb-item:focus-visible { outline: 2px solid #8fb0ff; outline-offset: 2px; }
+.sb-item--active, .sb-item--active:hover {
+  color: #fff; font-weight: 650;
+  background: linear-gradient(90deg, var(--sb-blue) 0%, var(--sb-blue-2) 100%);
+  box-shadow: 0 8px 20px rgba(42, 71, 185, .42), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+.sb-item--active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 13px 0 0 13px; background: #fff; }
+.sb-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; }
+.sb-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-chev { display: inline-flex; flex-shrink: 0; margin-right: -2px; opacity: .95; }
+
+.sb-badge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 6px;
+  background: var(--sb-blue); color: #fff; font-size: 11.5px; font-weight: 750; font-variant-numeric: tabular-nums; box-shadow: 0 2px 6px rgba(49, 87, 220, .45); }
+.sb-item--active .sb-badge { background: rgba(255, 255, 255, .22); box-shadow: none; }
+.sb-tag { flex-shrink: 0; padding: 3px 10px; border-radius: 7px; background: rgba(122, 134, 230, .30); color: #dfe4ff; font-size: 11px; font-weight: 600; letter-spacing: .01em; }
+
+/* Footer */
+.sb-foot { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 16px; background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.015)); border-top: 1px solid rgba(255, 255, 255, .08); border-radius: 22px 22px 0 0; }
+.sb-root--floating .sb-foot { border-radius: 22px 22px 26px 26px; }
+.sb-reg { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 8px 14px; border-radius: 16px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); }
+.sb-reg__icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; color: #fff;
+  background: radial-gradient(circle at 35% 30%, #22358c, #121f63); box-shadow: inset 0 0 0 1.5px rgba(150, 175, 255, .35); }
+.sb-reg__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-reg__label { font-size: 10.5px; font-weight: 500; color: #9db0f0; }
+.sb-reg__value { font-size: 14px; font-weight: 750; letter-spacing: -.01em; color: #fff; white-space: nowrap; }
+
+.sb-toggle { display: flex; align-items: center; justify-content: flex-start; gap: 14px; width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 18px; border: 0; border-radius: 16px;
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); color: #fff; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 550; transition: background .15s ease; }
+.sb-toggle svg { color: #8fb0ff; flex-shrink: 0; }
+.sb-toggle:hover { background: rgba(255, 255, 255, .12); }
+.sb-toggle:focus-visible { outline: 2px solid #8fb0ff; outline-offset: 2px; }
+
+/* Collapsed state (76px) */
+.sb-root--collapsed .sb-nav { padding: 2px 15px 12px; }
+.sb-root--collapsed .sb-item { justify-content: center; width: 46px; min-height: 44px; margin: 0 auto 6px; padding: 0; border-radius: 14px; }
+.sb-root--collapsed .sb-item--active::before { display: none; }
+.sb-root--collapsed .sb-item--stacked { flex-direction: column; gap: 4px; height: auto; padding: 9px 0 6px; }
+.sb-badge--float { position: absolute; top: -4px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 10.5px; border: 2px solid #0f1b5a; box-sizing: content-box; }
+.sb-tag--stack { padding: 1px 6px; border-radius: 6px; font-size: 9.5px; }
+.sb-root--collapsed .sb-foot { align-items: center; padding: 14px 15px 16px; }
+.sb-root--collapsed .sb-reg { justify-content: center; width: 46px; min-height: 46px; padding: 0; border-radius: 14px; }
+.sb-root--collapsed .sb-toggle { justify-content: center; width: 46px; min-height: 46px; padding: 0; border-radius: 14px; }
+
+@media print { .sb-root { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .sb-root, .sb-item, .sb-toggle { transition: none; } }
+
+
+
+/* ==========================================================================
+   Dashen BOIVS — Modern Sidebar refinement
+   Appended overrides: preserves the existing sb-* JSX class contract.
+   ========================================================================== */
+
+.sb-root {
+  --sb-blue: #4167ed;
+  --sb-blue-2: #2949c7;
+  --sb-line: rgba(226, 234, 255, 0.12);
+
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(63, 104, 237, 0.20), transparent 34%),
+    linear-gradient(180deg, #17266f 0%, #111e5b 48%, #0b1648 100%);
+  color: #f4f6ff;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.035);
+  scrollbar-gutter: stable;
+}
+
+.sb-root--floating {
+  margin: 10px 0 10px 10px;
+  top: 10px;
+  height: calc(100vh - 20px);
+  height: calc(100dvh - 20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 22px;
+  box-shadow:
+    0 22px 50px rgba(8, 18, 62, 0.28),
+    0 4px 12px rgba(8, 18, 62, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.sb-root::before {
+  top: -104px;
+  right: -105px;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(
+    circle at 35% 65%,
+    rgba(76, 119, 255, 0.56) 0%,
+    rgba(56, 98, 240, 0.22) 42%,
+    rgba(56, 98, 240, 0) 72%
+  );
+}
+
+.sb-root::after {
+  top: -62px;
+  right: -62px;
+  width: 180px;
+  height: 180px;
+  border-color: rgba(164, 188, 255, 0.16);
+}
+
+.sb-brand {
+  position: relative;
+  gap: 13px;
+  min-height: 78px;
+  padding: 20px 20px 17px;
+}
+
+.sb-logo {
+  max-width: 154px;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.12));
+}
+
+.sb-brand__name {
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.sb-brand__sub {
+  color: #aabaf0;
+  font-size: 10px;
+  letter-spacing: 0.025em;
+}
+
+.sb-root--collapsed .sb-brand {
+  min-height: 76px;
+  padding-top: 20px;
+}
+
+.sb-nav {
+  padding: 4px 11px 14px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(191, 207, 255, 0.22) transparent;
+}
+
+.sb-nav::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+}
+
+.sb-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sb-nav::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: rgba(191, 207, 255, 0.20);
+}
+
+.sb-group {
+  gap: 10px;
+  padding: 16px 10px 9px;
+  color: #91a5e8;
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+}
+
+.sb-group::after {
+  background: linear-gradient(90deg, rgba(226, 234, 255, 0.15), transparent);
+}
+
+.sb-item {
+  min-height: 45px;
+  gap: 13px;
+  margin-bottom: 5px;
+  padding: 0 13px 0 16px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #dce4ff;
+  font-size: 12.75px;
+  font-weight: 550;
+  letter-spacing: 0;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.sb-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(255, 255, 255, 0.055);
+}
+
+.sb-item:active {
+  transform: translateY(1px);
+}
+
+.sb-item:focus-visible {
+  outline: 2px solid #a8c1ff;
+  outline-offset: 2px;
+}
+
+.sb-item--active,
+.sb-item--active:hover {
+  color: #fff;
+  font-weight: 650;
+  background: linear-gradient(105deg, #4168ed 0%, #3155d5 58%, #2948bd 100%);
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 7px 17px rgba(26, 53, 153, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+
+.sb-item--active::before {
+  left: -1px;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.48);
+}
+
+.sb-icon {
+  width: 21px;
+  height: 21px;
+  color: #aebeff;
+}
+
+.sb-item--active .sb-icon {
+  color: #fff;
+}
+
+.sb-icon svg,
+.sb-chev svg,
+.sb-toggle svg {
+  width: 19px;
+  height: 19px;
+}
+
+.sb-chev {
+  color: #a9b8eb;
+  opacity: 0.85;
+}
+
+.sb-item--active .sb-chev {
+  color: #fff;
+}
+
+.sb-badge {
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #5579f1;
+  box-shadow: 0 2px 7px rgba(4, 12, 48, 0.20);
+  font-size: 10.5px;
+}
+
+.sb-tag {
+  padding: 3px 8px;
+  border: 1px solid rgba(190, 204, 255, 0.10);
+  border-radius: 6px;
+  background: rgba(150, 169, 255, 0.15);
+  color: #dce5ff;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.sb-foot {
+  gap: 9px;
+  padding: 13px 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 17px 17px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+}
+
+.sb-root--floating .sb-foot {
+  border-radius: 17px 17px 21px 21px;
+}
+
+.sb-reg {
+  min-height: 52px;
+  gap: 11px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.065);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.sb-reg__icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(145deg, #3049a7, #17265f);
+  box-shadow: inset 0 0 0 1px rgba(177, 196, 255, 0.30);
+}
+
+.sb-reg__label {
+  color: #a9b9ef;
+  font-size: 10px;
+}
+
+.sb-reg__value {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sb-toggle {
+  min-height: 43px;
+  gap: 12px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.065);
+  color: #e9edff;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.sb-toggle svg {
+  color: #a9beff;
+}
+
+.sb-toggle:hover {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+.sb-toggle:active {
+  transform: translateY(1px);
+}
+
+.sb-toggle:focus-visible {
+  outline: 2px solid #a8c1ff;
+  outline-offset: 2px;
+}
+
+/* Collapsed navigation — retain the existing 76px layout */
+.sb-root--collapsed .sb-nav {
+  padding: 4px 14px 12px;
+}
+
+.sb-root--collapsed .sb-item {
+  width: 46px;
+  min-height: 44px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+}
+
+.sb-root--collapsed .sb-item--active::before {
+  display: none;
+}
+
+.sb-root--collapsed .sb-item--active {
+  box-shadow:
+    0 6px 14px rgba(26, 53, 153, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.sb-root--collapsed .sb-foot {
+  gap: 9px;
+  padding: 12px 14px 14px;
+}
+
+.sb-root--collapsed .sb-reg,
+.sb-root--collapsed .sb-toggle {
+  width: 46px;
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+.sb-badge--float {
+  border-color: #111e5b;
+  background: #5579f1;
+}
+
+/* Small desktop / tablet: tighten density without changing collapse logic */
+@media (max-width: 1100px) {
+  .sb-brand {
+    padding-right: 16px;
+    padding-left: 17px;
+  }
+
+  .sb-nav {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .sb-item {
+    gap: 11px;
+    padding-right: 10px;
+    padding-left: 13px;
+    font-size: 12.25px;
+  }
+
+  .sb-foot {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
+/* Reduced motion and print */
+@media (prefers-reduced-motion: reduce) {
+  .sb-root,
+  .sb-item,
+  .sb-toggle {
+    transition: none !important;
+  }
+
+  .sb-item:active,
+  .sb-toggle:active {
+    transform: none;
+  }
+}
+
+@media print {
+  .sb-root {
+    display: none !important;
+  }
+}
+
+
+/* ==========================================================================
+   Sidebar sizing update — expanded 332px / collapsed 76px
+   Logo dimensions and typography are centralized as CSS variables.
+   Keep this block at the very end of the stylesheet.
+   ========================================================================== */
+
+.sb-root {
+  --sb-expanded-width: 332px;
+  --sb-collapsed-width: 76px;
+
+  /* Logo image dimensions */
+  --sb-logo-width: 156px;
+  --sb-logo-height: 150px;
+  --sb-logo-wide-width: 184px;
+  --sb-logo-wide-height: 48px;
+  --sb-logo-collapsed-width: 40px;
+  --sb-logo-collapsed-height: 40px;
+
+  /* Typography */
+  --sb-brand-name-size: 17px;
+  --sb-brand-sub-size: 11px;
+  --sb-group-size: 10px;
+  --sb-item-size: 16px;
+  --sb-footer-label-size: 10.5px;
+  --sb-footer-value-size: 14px;
+
+  width: var(--sb-expanded-width);
+  min-width: var(--sb-expanded-width);
+  max-width: var(--sb-expanded-width);
+  flex: 0 0 var(--sb-expanded-width);
+}
+
+.sb-root--collapsed {
+  width: var(--sb-collapsed-width);
+  min-width: var(--sb-collapsed-width);
+  max-width: var(--sb-collapsed-width);
+  flex: 0 0 var(--sb-collapsed-width);
+}
+
+/* Explicit logo image width and height */
+.sb-logo {
+  display: block;
+  width: var(--sb-logo-width);
+  height: var(--sb-logo-height);
+  min-width: 0;
+  max-width: var(--sb-logo-width);
+  flex: 0 0 auto;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.sb-logo--wide {
+  width: var(--sb-logo-wide-width);
+  height: var(--sb-logo-wide-height);
+  max-width: var(--sb-logo-wide-width);
+  object-fit: contain;
+}
+
+.sb-root--collapsed .sb-logo {
+  width: var(--sb-logo-collapsed-width);
+  height: var(--sb-logo-collapsed-height);
+  max-width: var(--sb-logo-collapsed-width);
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Explicit font-size controls */
+.sb-brand__name { font-size: var(--sb-brand-name-size); }
+.sb-brand__sub { font-size: var(--sb-brand-sub-size); }
+.sb-group { font-size: var(--sb-group-size); }
+.sb-item { font-size: var(--sb-item-size); }
+.sb-reg__label { font-size: var(--sb-footer-label-size); }
+.sb-reg__value { font-size: var(--sb-footer-value-size); }
+
+/* Spacing tuned for the wider expanded sidebar */
+.sb-brand {
+  gap: 14px;
+  padding-right: 22px;
+  padding-left: 22px;
+}
+
+.sb-nav {
+  padding-right: 13px;
+  padding-left: 13px;
+}
+
+.sb-item {
+  min-height: 46px;
+  gap: 14px;
+  padding-right: 14px;
+  padding-left: 17px;
+  font-size: var(--sb-item-size);
+}
+
+.sb-foot {
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+.sb-root--collapsed .sb-brand {
+  justify-content: center;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.sb-root--collapsed .sb-nav {
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+.sb-root--collapsed .sb-foot {
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+@media (max-width: 1100px) {
+  .sb-root:not(.sb-root--collapsed) .sb-item {
+    padding-right: 13px;
+    padding-left: 16px;
+    font-size: var(--sb-item-size);
+  }
+}
+
+/* On narrow screens, fit the expanded sidebar within the viewport.
+   Drawer/overlay behavior still needs to be implemented in Sidebar.jsx. */
+@media (max-width: 720px) {
+  .sb-root {
+    max-width: min(var(--sb-expanded-width), 86vw);
+  }
+
+  .sb-root:not(.sb-root--collapsed) {
+    width: min(var(--sb-expanded-width), 86vw);
+    min-width: min(var(--sb-expanded-width), 86vw);
+    flex-basis: min(var(--sb-expanded-width), 86vw);
+  }
+
+  .sb-logo--wide {
+    max-width: min(var(--sb-logo-wide-width), 52vw);
+  }
+}
