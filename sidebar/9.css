@@ -1,8 +1,15 @@
 /* ==========================================================================
    DASHEN BOIVS — MODERN SIDEBAR
    Expanded: 332px | Collapsed: 76px
-   Full-height, square outer edges, refined navy / blue enterprise styling.
-   Scoped to .sb- classes. Compatible with components/Sidebar.jsx.
+
+   Scroll behavior is controlled by --sb-scroll-mode on .sb-root:
+     rail   (default) pinned rail; only the content column scrolls
+     page             sidebar scrolls with the page (no pinning)
+     fixed            sidebar is position:fixed; whole page scrolls behind it
+
+   Example overrides:
+     :root { --sb-scroll-mode: page; }
+     <aside className="sb-root" style={{ '--sb-scroll-mode': 'fixed' }}>
    ========================================================================== */
 
 .sb-root {
@@ -13,16 +20,12 @@
   --sb-text: #f4f6ff;
   --sb-muted: #aab9ee;
   --sb-line: rgba(255, 255, 255, .105);
+  --sb-scroll-mode: rail;   /* rail | page | fixed */
 
-  position: sticky;
-  top: 0;
   z-index: 30;
   flex: 0 0 var(--sb-width);
   width: var(--sb-width);
   min-width: var(--sb-width);
-  height: 100vh;
-  height: 100dvh;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -40,19 +43,49 @@
   transition: width .24s cubic-bezier(.2, .8, .2, 1),
               min-width .24s cubic-bezier(.2, .8, .2, 1),
               flex-basis .24s cubic-bezier(.2, .8, .2, 1);
+
+  /* ---- Scroll mode: rail (pinned, content scrolls) ---- */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+}
+
+/* ---- Scroll mode: page (sidebar scrolls with the document) ---- */
+.sb-root[style*="--sb-scroll-mode: page"],
+.sb-root[style*="--sb-scroll-mode:page"],
+.sb-root.sb-root--scroll-page {
+  position: static;
+  top: auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  align-self: flex-start;
+}
+
+/* ---- Scroll mode: fixed (whole page scrolls behind the sidebar) ---- */
+.sb-root[style*="--sb-scroll-mode: fixed"],
+.sb-root[style*="--sb-scroll-mode:fixed"],
+.sb-root.sb-root--scroll-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden; /* nav inside still scrolls */
 }
 
 /* Flatten the optional floating modifier: no outer gaps or rounded corners. */
 .sb-root--floating {
   top: 0;
   margin: 0;
-  height: 100vh;
-  height: 100dvh;
   border: 0;
   border-right: 1px solid rgba(255, 255, 255, .09);
   border-radius: 0;
   box-shadow: 8px 0 28px rgba(9, 22, 72, .12);
 }
+.sb-root--floating.sb-root--scroll-page { box-shadow: none; }
 
 .sb-root--collapsed {
   flex-basis: var(--sb-collapsed-width);
@@ -94,8 +127,6 @@
 
 /* ==========================================================================
    Top-edge collapse toggle
-   Pinned to the top-right corner of the sidebar. The JSX also sets these
-   values inline so the button works even if this rule is not loaded.
    ========================================================================== */
 .sb-edge-toggle {
   position: absolute;
@@ -137,7 +168,6 @@
   gap: 13px;
   flex: 0 0 auto;
   min-height: 86px;
-  /* Right padding leaves room for the top-edge toggle (expanded only). */
   padding: 20px 54px 17px 22px;
   box-sizing: border-box;
 }
@@ -170,7 +200,6 @@
 .sb-root--collapsed .sb-brand {
   justify-content: center;
   min-height: 82px;
-  /* Extra top space so the centered toggle sits above the logo. */
   padding: 46px 0 18px;
 }
 .sb-root--collapsed .sb-logo {
@@ -424,7 +453,9 @@
 .sb-root--collapsed .sb-toggle span,
 .sb-root--collapsed .sb-toggle .sb-toggle__label { display: none; }
 
-/* Responsive */
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
 @media (max-width: 900px) {
   .sb-root { --sb-width: 292px; }
 }
@@ -443,6 +474,14 @@
     width: var(--sb-collapsed-width);
     min-width: var(--sb-collapsed-width);
     flex-basis: var(--sb-collapsed-width);
+  }
+  /* In 'page' mode on mobile, the drawer shouldn't be pinned. */
+  .sb-root.sb-root--scroll-page,
+  .sb-root[style*="--sb-scroll-mode: page"],
+  .sb-root[style*="--sb-scroll-mode:page"] {
+    position: static;
+    height: auto;
+    box-shadow: none;
   }
 }
 
