@@ -1,0 +1,41 @@
+/* Top-edge collapse toggle — white chip, blue arrow */
+.sb-edge-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .9);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #3159d9;                 /* blue arrow */
+  box-shadow: 0 2px 6px rgba(9, 22, 72, .18);
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.sb-edge-toggle:hover {
+  background: #f3f6ff;            /* very light blue-tinted hover */
+  border-color: #ffffff;
+  color: #283375;                 /* deeper blue on hover */
+  box-shadow: 0 3px 10px rgba(9, 22, 72, .22);
+}
+.sb-edge-toggle:focus-visible {
+  outline: 2px solid #a8c1ff;
+  outline-offset: 2px;
+}
+.sb-edge-toggle svg {
+  display: block;
+  stroke: currentColor;           /* ensures the chevron inherits the blue */
+  color: currentColor;
+}
+
+.sb-root--collapsed .sb-edge-toggle {
+  top: 8px;
+  right: 50%;
+  transform: translateX(50%);
+}
