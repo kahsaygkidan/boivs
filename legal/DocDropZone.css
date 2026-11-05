@@ -1,0 +1,48 @@
+.nlr-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--nlr-text-muted, #64748b);
+  background: var(--nlr-surface-alt, #fafbfc);
+  border: 1.5px dashed var(--nlr-border, #d5d9e6);
+  border-radius: var(--nlr-radius-sm, 8px);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.nlr-drop:hover,
+.nlr-drop--over {
+  border-color: var(--nlr-primary, #283375);
+  background: rgba(40, 51, 117, 0.06);
+}
+
+.nlr-drop--over { border-style: solid; }
+
+.nlr-drop:focus-visible {
+  outline: 2px solid var(--nlr-primary, #283375);
+  outline-offset: 2px;
+}
+
+.nlr-drop--compact { padding: 10px 14px; }
+
+.nlr-drop--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.nlr-drop__icon { display: inline-flex; color: var(--nlr-primary, #283375); }
+.nlr-drop__text strong { color: var(--nlr-text, #0f172a); font-weight: 600; }
+
+/* Visually hidden but still part of the form */
+.nlr-drop__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
