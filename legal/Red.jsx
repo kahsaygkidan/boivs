@@ -1,3 +1,87 @@
+==============
+
+  <div className="nlr-record__section" style={{ marginTop: 20 }}>
+              Supporting documents
+              <span style={{ textTransform: 'none', fontWeight: 500, color: 'var(--nlr-text-muted)', fontSize: 11.5, letterSpacing: 0, marginLeft: 6 }}>
+                {isForeign ? '— home-jurisdiction document required, others optional' : '— optional'}
+              </span>
+            </div>
+            <div className="nlr-field-hint" style={{ marginTop: 6 }}>
+              Accepted: <strong>PDF, JPG or PNG</strong>, up to <strong>15 MB per file</strong>. Add as many files as you need under each type.
+            </div>
+            <div className="nlr-grid-2" style={{ marginTop: 10 }}>
+              {LEGAL_DOC_TYPES.map((d) => {
+                const existing = existingDocs[d.docType] || [];
+                const pending = legalDocs[d.key] || [];
+                const needed = isForeign && d.docType === 'FOREIGN_HOME_DOCUMENT';
+                const rowStyle = {
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 6,
+                  borderRadius: 'var(--nlr-radius-sm)', fontSize: 12.5,
+                };
+                return (
+                  <div key={d.key}>
+                    <Field label={d.label} required={needed}>
+                      {existing.map((doc) => (
+                        <div key={doc.id} style={{
+                          ...rowStyle,
+                          background: 'var(--nlr-success-soft)', border: '1px solid var(--nlr-success-border)',
+                        }}>
+                          <span style={{ color: 'var(--nlr-success)', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.fileName}>
+                            {doc.fileName}
+                          </span>
+                          <button type="button" className="nlr-btn nlr-btn--outline nlr-btn--sm"
+                            onClick={() => handleDocDownload(doc.id, doc.fileName)}
+                            title="Download">
+                            {I.download}
+                          </button>
+                          <button type="button" className="nlr-btn nlr-btn--danger nlr-btn--sm"
+                            onClick={() => handleDocDelete(d.docType, doc.id)}
+                            title="Delete">
+                            {I.trash}
+                          </button>
+                        </div>
+                      ))}
+                      {pending.map((f, i) => (
+                        <div key={`${f.name}-${f.size}`} style={{
+                          ...rowStyle,
+                          background: 'var(--nlr-surface-alt, #fafbfc)', border: '1px dashed var(--nlr-border, #d5d9e6)',
+                        }}>
+                          <span style={{ flexShrink: 0, fontWeight: 700 }} aria-hidden="true">+</span>
+                          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.name}>
+                            {f.name}
+                          </span>
+                          <span style={{ color: 'var(--nlr-text-muted)', flexShrink: 0 }}>{fmtKb(f.size)}</span>
+                          <button type="button" className="nlr-btn nlr-btn--danger nlr-btn--sm"
+                            onClick={() => removeLegalDoc(d.key, i)}
+                            title="Remove from upload list" aria-label={`Remove ${f.name}`}>
+                            {I.trash}
+                          </button>
+                        </div>
+                      ))}
+                      <input
+                        className="nlr-input"
+                        type="file"
+                        multiple
+                        accept={DOC_ACCEPT}
+                        onChange={(e) => {
+                          addLegalDocs(d.key, e.target.files);
+                          e.target.value = ''; // lets the same file be picked again after removing it
+                        }}
+                      />
+                      <FieldHint msg={needed ? `Required for foreign legal persons · ${DOC_FORMAT_HINT}` : DOC_FORMAT_HINT} />
+                      <FieldError msg={docErrors[d.key]} />
+                      {pending.length > 0 && (
+                        <FieldHint msg={`${pending.length} file${pending.length === 1 ? '' : 's'} will upload when you click Next.`} />
+                      )}
+                    </Field>
+                  </div>
+                );
+              })}
+            </div>
+
+  ==============
+
 
 
 
