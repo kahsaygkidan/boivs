@@ -1,0 +1,543 @@
+/* ==========================================================================
+   DASHEN BOIVS — MODERN SIDEBAR
+   Expanded: 332px | Collapsed: 76px
+
+   Height behavior is controlled by --sb-height-mode on .sb-root:
+     stretch (default)  sidebar height follows its flex parent / page content
+     viewport           sidebar is at least 100vh; grows with taller pages
+     fixed              sidebar locked to 100vh (classic pinned rail)
+
+   Scroll behavior is controlled by --sb-scroll-mode on .sb-root:
+     rail   (default)  pinned rail; only the content column scrolls
+     page              sidebar scrolls with the page (no pinning)
+     fixed             position:fixed; whole page scrolls behind it
+
+   Examples:
+     :root { --sb-height-mode: stretch; --sb-scroll-mode: page; }
+     <aside className="sb-root sb-root--page sb-root--stretch">…</aside>
+   ========================================================================== */
+
+.sb-root {
+  --sb-width: 332px;
+  --sb-collapsed-width: 76px;
+  --sb-blue: #283375;
+  --sb-blue-2: #3159d9;
+  --sb-text: #f4f6ff;
+  --sb-muted: #aab9ee;
+  --sb-line: rgba(255, 255, 255, .105);
+  --sb-scroll-mode: rail;    /* rail | page | fixed */
+  --sb-height-mode: stretch; /* stretch | viewport | fixed */
+
+  z-index: 30;
+  flex: 0 0 var(--sb-width);
+  width: var(--sb-width);
+  min-width: var(--sb-width);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: var(--sb-text);
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(69, 111, 255, .23) 0%, transparent 34%),
+    linear-gradient(180deg, #14266f 0%, #101f60 48%, #0b174b 100%);
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 0;
+  box-shadow: 8px 0 28px rgba(9, 22, 72, .12);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: width .24s cubic-bezier(.2, .8, .2, 1),
+              min-width .24s cubic-bezier(.2, .8, .2, 1),
+              flex-basis .24s cubic-bezier(.2, .8, .2, 1),
+              height .24s ease;
+
+  /* ---- Height mode: stretch (default) ---- */
+  align-self: stretch;
+  height: auto;
+
+  /* ---- Scroll mode: rail (default) ---- */
+  position: sticky;
+  top: 0;
+}
+
+/* ==========================================================================
+   HEIGHT MODES
+   ========================================================================== */
+
+/* viewport — at least the viewport, can grow taller than it */
+.sb-root[style*="--sb-height-mode: viewport"],
+.sb-root[style*="--sb-height-mode:viewport"],
+.sb-root.sb-root--h-viewport {
+  align-self: stretch;
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* fixed — locked to the viewport height (classic rail) */
+.sb-root[style*="--sb-height-mode: fixed"],
+.sb-root[style*="--sb-height-mode:fixed"],
+.sb-root.sb-root--h-fixed {
+  align-self: auto;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+}
+
+/* stretch (explicit modifier — same as default, useful for readability) */
+.sb-root.sb-root--h-stretch {
+  align-self: stretch;
+  height: auto;
+  min-height: 0;
+}
+
+/* ==========================================================================
+   SCROLL MODES
+   ========================================================================== */
+
+/* page — sidebar scrolls with the document (no pinning) */
+.sb-root[style*="--sb-scroll-mode: page"],
+.sb-root[style*="--sb-scroll-mode:page"],
+.sb-root.sb-root--scroll-page {
+  position: static;
+  top: auto;
+  overflow: visible;
+}
+
+/* fixed — position:fixed, whole page scrolls behind the sidebar */
+.sb-root[style*="--sb-scroll-mode: fixed"],
+.sb-root[style*="--sb-scroll-mode:fixed"],
+.sb-root.sb-root--scroll-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden; /* nav inside still scrolls */
+}
+
+/* ==========================================================================
+   FLOATING MODIFIER (visual only)
+   ========================================================================== */
+.sb-root--floating {
+  margin: 0;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 0;
+  box-shadow: 8px 0 28px rgba(9, 22, 72, .12);
+}
+.sb-root--floating.sb-root--scroll-page { box-shadow: none; }
+
+.sb-root--collapsed {
+  flex-basis: var(--sb-collapsed-width);
+  width: var(--sb-collapsed-width);
+  min-width: var(--sb-collapsed-width);
+}
+
+/* ==========================================================================
+   Decorative glow (unchanged)
+   ========================================================================== */
+.sb-root::before,
+.sb-root::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+}
+.sb-root::before {
+  top: -105px;
+  right: -112px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(81,126,255,.28) 0%, rgba(81,126,255,.12) 42%, transparent 72%);
+}
+.sb-root::after {
+  top: -62px;
+  right: -62px;
+  width: 176px;
+  height: 176px;
+  border: 1px solid rgba(155,183,255,.12);
+}
+.sb-root--collapsed::before {
+  top: -78px;
+  right: -86px;
+  width: 180px;
+  height: 180px;
+}
+.sb-root--collapsed::after { display: none; }
+.sb-root > * { position: relative; z-index: 1; }
+
+/* ==========================================================================
+   Top-edge collapse toggle (unchanged)
+   ========================================================================== */
+.sb-edge-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .08);
+  color: #dfe7ff;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.sb-edge-toggle:hover {
+  background: rgba(255, 255, 255, .15);
+  border-color: rgba(255, 255, 255, .24);
+  color: #fff;
+}
+.sb-edge-toggle:focus-visible {
+  outline: 2px solid #a8c1ff;
+  outline-offset: 2px;
+}
+.sb-root--collapsed .sb-edge-toggle {
+  top: 8px;
+  right: 50%;
+  transform: translateX(50%);
+}
+
+/* ==========================================================================
+   Brand / logo (unchanged)
+   ========================================================================== */
+.sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex: 0 0 auto;
+  min-height: 86px;
+  padding: 20px 54px 17px 22px;
+  box-sizing: border-box;
+}
+.sb-logo {
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 210px;
+  height: 110px;
+  object-fit: contain;
+  object-position: center;
+}
+.sb-logo--wide { max-width: 210px; height: 48px; }
+.sb-brand__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb-brand__name {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -.025em;
+  white-space: nowrap;
+}
+.sb-brand__sub {
+  margin-top: 4px;
+  color: #a9baf1;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+.sb-root--collapsed .sb-brand {
+  justify-content: center;
+  min-height: 82px;
+  padding: 46px 0 18px;
+}
+.sb-root--collapsed .sb-logo {
+  width: 40px;
+  height: 40px;
+  max-width: 40px;
+  object-fit: contain;
+}
+.sb-root--collapsed .sb-brand__text { display: none; }
+
+/* ==========================================================================
+   Nav (unchanged)
+   ========================================================================== */
+.sb-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 4px 13px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(184,202,255,.24) transparent;
+  overscroll-behavior: contain;
+}
+.sb-nav::-webkit-scrollbar { width: 5px; }
+.sb-nav::-webkit-scrollbar-track { background: transparent; }
+.sb-nav::-webkit-scrollbar-thumb { background: rgba(184,202,255,.22); border-radius: 10px; }
+
+.sb-group {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 17px 11px 9px;
+  color: #9eafe9;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .13em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+}
+.sb-group:first-child { padding-top: 8px; }
+.sb-group::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--sb-line); }
+.sb-root--collapsed .sb-nav { padding: 4px 14px 14px; }
+.sb-root--collapsed .sb-group {
+  height: 1px;
+  margin: 13px 9px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--sb-line);
+  font-size: 0;
+}
+.sb-root--collapsed .sb-group::after { display: none; }
+.sb-root--collapsed .sb-group:first-child { display: none; }
+
+.sb-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 47px;
+  margin: 0 0 5px;
+  padding: 0 15px 0 18px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  outline: none;
+  background: transparent;
+  color: #e5eaff;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: -.01em;
+  transition: color .16s ease, background .16s ease, border-color .16s ease,
+              box-shadow .16s ease, transform .16s ease;
+}
+.sb-item:hover {
+  color: #fff;
+  background: rgba(255,255,255,.075);
+  border-color: rgba(255,255,255,.055);
+}
+.sb-item:active { transform: translateY(1px); }
+.sb-item:focus-visible { outline: 2px solid #a8c1ff; outline-offset: 2px; }
+.sb-item--active,
+.sb-item--active:hover {
+  color: #fff;
+  font-weight: 650;
+  border-color: rgba(255,255,255,.12);
+  background: linear-gradient(100deg, #4776f5 0%, #315bdc 100%);
+  box-shadow: 0 7px 18px rgba(27,57,160,.30), inset 0 1px 0 rgba(255,255,255,.16);
+}
+.sb-item--active::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: #fff;
+  box-shadow: 0 0 9px rgba(255,255,255,.35);
+}
+.sb-icon {
+  display: inline-flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: #b8c8ff;
+  transition: color .16s ease, transform .16s ease;
+}
+.sb-item:hover .sb-icon,
+.sb-item--active .sb-icon { color: #fff; }
+.sb-item:hover .sb-icon { transform: translateX(1px); }
+.sb-label { flex: 1 1 auto; min-width: 0; overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.sb-chev { display: inline-flex; flex: 0 0 auto; align-items: center; margin-right: -2px; color: #b9c8f7; opacity: .9; }
+.sb-item--active .sb-chev { color: #fff; }
+
+/* Badges and tags */
+.sb-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 7px;
+  background: rgba(93,132,255,.30);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.sb-item--active .sb-badge { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.20); }
+.sb-tag {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 7px;
+  background: rgba(139,158,255,.17);
+  color: #e3eaff;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: .015em;
+}
+
+/* ==========================================================================
+   Footer + version
+   ========================================================================== */
+.sb-foot {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px 14px 17px;
+  border-top: 1px solid rgba(255,255,255,.09);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+}
+.sb-root--floating .sb-foot { border-radius: 0; }
+.sb-reg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 9px 12px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 12px;
+  background: rgba(255,255,255,.065);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.sb-reg__icon {
+  display: inline-flex;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(170,193,255,.30);
+  border-radius: 11px;
+  background: linear-gradient(145deg, #3857bd, #1a2d7d);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(5,13,51,.18);
+}
+.sb-reg__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.sb-reg__label { color: #aab9ee; font-size: 11px; font-weight: 550; }
+.sb-reg__value { margin-top: 2px; color: #fff; font-size: 15px; font-weight: 750; letter-spacing: -.015em; white-space: nowrap; }
+
+.sb-version {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  color: #aab9ee;
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.sb-root--collapsed .sb-version {
+  justify-content: center;
+  padding: 0;
+  font-size: 10.5px;
+}
+
+/* ==========================================================================
+   Collapsed layout (unchanged)
+   ========================================================================== */
+.sb-root--collapsed .sb-item {
+  justify-content: center;
+  width: 46px;
+  min-height: 46px;
+  margin: 0 auto 7px;
+  padding: 0;
+  border-radius: 12px;
+}
+.sb-root--collapsed .sb-item--active::before { display: none; }
+.sb-root--collapsed .sb-item--stacked { flex-direction: column; gap: 4px; height: auto; padding: 9px 0 7px; }
+.sb-root--collapsed .sb-label,
+.sb-root--collapsed .sb-chev { display: none; }
+.sb-badge--float {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid #101f60;
+  border-radius: 7px;
+  background: #5b83ff;
+  font-size: 10px;
+}
+.sb-tag--stack { padding: 2px 6px; border-radius: 5px; font-size: 9px; }
+.sb-root--collapsed .sb-foot { align-items: center; padding: 13px 10px 15px; }
+.sb-root--collapsed .sb-reg { justify-content: center; width: 46px; min-height: 46px; padding: 0; border-radius: 12px; }
+.sb-root--collapsed .sb-reg__text { display: none; }
+.sb-root--collapsed .sb-reg__icon { width: 36px; height: 36px; flex-basis: 36px; border-radius: 10px; }
+.sb-root--collapsed .sb-toggle {
+  justify-content: center;
+  width: 46px;
+  min-height: 46px;
+  padding: 0;
+  border-radius: 12px;
+}
+.sb-root--collapsed .sb-toggle span,
+.sb-root--collapsed .sb-toggle .sb-toggle__label { display: none; }
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 900px) {
+  .sb-root { --sb-width: 292px; }
+}
+@media (max-width: 640px) {
+  .sb-root {
+    --sb-width: min(86vw, 332px);
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    z-index: 1000;
+    box-shadow: 12px 0 32px rgba(5,14,48,.28);
+  }
+  .sb-root--collapsed {
+    width: var(--sb-collapsed-width);
+    min-width: var(--sb-collapsed-width);
+    flex-basis: var(--sb-collapsed-width);
+  }
+  /* In 'page' scroll mode on mobile, the drawer shouldn't be pinned. */
+  .sb-root.sb-root--scroll-page,
+  .sb-root[style*="--sb-scroll-mode: page"],
+  .sb-root[style*="--sb-scroll-mode:page"] {
+    position: static;
+    height: auto;
+    min-height: 0;
+    box-shadow: none;
+  }
+}
+
+/* Reduced motion and print */
+@media (prefers-reduced-motion: reduce) {
+  .sb-root, .sb-item, .sb-icon, .sb-toggle, .sb-edge-toggle { transition: none !important; }
+}
+@media print {
+  .sb-root { display: none !important; }
+}
