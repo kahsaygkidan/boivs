@@ -1,5 +1,7 @@
 
 #283375 color
+background: radial-gradient(circle at 22% 68%, #283375 0%, rgba(56, 98, 240, .38) 42%, rgba(56, 98, 240, 0) 99%); }
+
 
 # Java Spring Boot Layered Implementation — BO Identification & Verification System
 
