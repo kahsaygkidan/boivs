@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: bo-verification-backend
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:oracle}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${BOVS_DDL_AUTO:validate}   # Flyway owns the schema
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: ${BOVS_FLYWAY_BASELINE:false}
+
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 20MB
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  address: ${SERVER_ADDRESS:0.0.0.0}
+  port: ${SERVER_PORT:8082}
+  shutdown: graceful
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+springdoc:
+  api-docs:
+    enabled: ${BOVS_SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${BOVS_SWAGGER_ENABLED:false}
+    path: /swagger-ui.html
+
+bovs:
+  cors:
+    allowed-origins: ${BOVS_ALLOWED_ORIGINS}
+
+  storage:
+    documents-dir: ${BOVS_DOCS_DIR:./bovs-documents}
+
+  keycloak:
+    # Server-side only: login/refresh/logout on behalf of the SPA.
+    base-url: ${KEYCLOAK_BASE_URL}
+    realm: ${KEYCLOAK_REALM:bovs}
+    client-id: ${KEYCLOAK_AUTH_CLIENT_ID:bovs-backend}
+    client-secret: ${KEYCLOAK_AUTH_CLIENT_SECRET}   # no default: fail fast if missing
+
+  # Exposed via GET /api/config/session so UI timers match enforcement.
+  # UX layer only: the real boundary is Keycloak's SSO Session Idle/Max.
+  session:
+    idle-timeout-minutes: ${BOVS_IDLE_TIMEOUT_MINUTES:15}
+    absolute-timeout-minutes: ${BOVS_ABSOLUTE_TIMEOUT_MINUTES:480}
+    refresh-lead-seconds: ${BOVS_REFRESH_LEAD_SECONDS:60}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
