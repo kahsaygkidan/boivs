@@ -1,0 +1,42 @@
+/* ---------- Unified import button ---------- */
+.nlr-btn--outline.nlr-btn--sm svg {
+  flex-shrink: 0;
+}
+
+/* ---------- Unified doc row (single-button variant) ---------- */
+.nlr-doc-zone {
+  margin-top: 10px;
+}
+.nlr-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  border-radius: var(--nlr-radius-sm);
+  background: var(--nlr-surface-alt, #fafbfc);
+  border: 1px dashed var(--nlr-border, #d5d9e6);
+}
+.nlr-doc-row__tag {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--nlr-primary, #283375);
+  background: var(--nlr-primary-soft, rgba(40, 51, 117, 0.08));
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nlr-doc-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nlr-doc-row__size {
+  flex-shrink: 0;
+  color: var(--nlr-text-muted, #64748b);
+}
