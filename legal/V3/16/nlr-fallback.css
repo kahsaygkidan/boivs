@@ -1,0 +1,45 @@
+/* Append to styles/NewLegalRegistration.css */
+.nlr-fallback__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.nlr-fallback__head .nlr-h3 { margin: 0 0 4px; }
+.nlr-fallback__head .nlr-hint { margin: 0; max-width: 560px; }
+
+.nlr-fallback__list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.nlr-fallback__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--nlr-primary-soft);
+  border: 1px solid var(--nlr-border);
+  border-radius: var(--nlr-radius-sm);
+}
+.nlr-fallback__item-meta { color: var(--nlr-text-muted); font-size: 12.5px; }
+
+.nlr-fallback__form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--nlr-border-strong);
+}
+.nlr-fallback__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.nlr-fallback__row { margin: 12px 0 0; }
+.nlr-fallback__actions .nlr-btn--ghost { margin-right: auto; }
