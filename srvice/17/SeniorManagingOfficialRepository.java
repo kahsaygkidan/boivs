@@ -24,4 +24,10 @@ public interface SeniorManagingOfficialRepository
         String legalPersonId,
         String idNumber
     );
+
+                boolean existsByLegalPerson_IdAndIdNumberAndIdNot(
+    String legalPersonId,
+    String idNumber,
+    String officialId
+);
 }
