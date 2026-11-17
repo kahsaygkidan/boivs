@@ -1,3 +1,4 @@
+
 package dashen.bank.boivs.dto;
 
 import java.time.LocalDate;
@@ -9,47 +10,56 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Size;
 
 public record SeniorManagingOfficialRequest(
 
-        @NotBlank
-        String fullName,
+    @NotBlank
+    @Size(max = 200)
+    String fullName,
 
-        @NotNull
-        @Past
-        LocalDate dateOfBirth,
+    @NotNull
+    @Past
+    LocalDate dateOfBirth,
 
-        @NotBlank
-        String nationality,
+    @NotBlank
+    @Size(max = 100)
+    String nationality,
 
-        @NotNull
-        Gender gender,
+    @NotNull
+    Gender gender,
 
-        @NotBlank
-        String phoneNumber,
+    @NotBlank
+    @Size(max = 50)
+    String phoneNumber,
 
-        @NotNull
-        IdDocumentType idDocumentType,
+    @NotNull
+    IdDocumentType idDocumentType,
 
-        @NotBlank
-        String idNumber,
+    @NotBlank
+    @Size(max = 100)
+    String idNumber,
 
-        @NotBlank
-        String countryOfIssue,
+    @NotBlank
+    @Size(max = 100)
+    String countryOfIssue,
 
-        @NotNull
-        @PastOrPresent
-        LocalDate dateOfIssue,
+    @NotNull
+    @PastOrPresent
+    LocalDate dateOfIssue,
 
-        @NotNull
-        LocalDate dateOfExpiry,
+    @NotNull
+    LocalDate dateOfExpiry,
 
-        @NotBlank
-        String position,
+    @NotBlank
+    @Size(max = 150)
+    String position,
 
-        @NotBlank
-        String justification,
+    @NotBlank
+    @Size(max = 2000)
+    String justification,
 
-        String verificationNotes
+    @Size(max = 2000)
+    String verificationNotes
 
 ) {}
