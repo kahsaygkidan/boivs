@@ -1,3 +1,7 @@
+
+Tracing is incomplete (see the warnings). Continue anyway?
+...
+
 need to trace ownership and control through every intermediate company until you reach the natural person(s) who ultimately own or control the customer.
 The NBE definition is consistent with this approach: a beneficial owner is a natural person who ultimately owns or controls the customer, including someone exercising ultimate effective control over a legal person. 
 Recommended UBO registration process
