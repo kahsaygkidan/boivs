@@ -1,0 +1,46 @@
+/* Append to styles/NewLegalRegistration.css */
+
+/* Structure confirmation modal */
+.nlr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, .58);
+  backdrop-filter: blur(4px);
+}
+.nlr-modal__dialog {
+  width: min(460px, 100%);
+  padding: 24px;
+  background: var(--nlr-surface, #fff);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
+}
+.nlr-modal__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: var(--nlr-primary-soft, #eef2ff);
+  color: var(--nlr-primary, #283375);
+}
+.nlr-modal__dialog .nlr-h3 { margin: 0 0 10px; font-size: 19px; }
+.nlr-modal__dialog .nlr-hint { margin: 0; font-size: 14px; line-height: 1.65; }
+.nlr-modal__actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+
+/* Exact missing / invalid fields on each Verify card */
+.nlr-missing {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--nlr-danger, #b42318);
+  background: var(--nlr-danger-soft, #fef3f2);
+  border: 1px solid var(--nlr-danger-border, #fecdca);
+  border-radius: var(--nlr-radius-sm);
+}
+.nlr-missing__list { margin: 4px 0 0; padding-left: 18px; }
