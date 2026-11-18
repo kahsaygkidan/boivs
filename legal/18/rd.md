@@ -1,3 +1,6 @@
+
+Add at least one shareholder/Natural person before continuing.
+
 Validation failed — ownershipPercentage: must not be null; ownershipType: must not be null
 
 
