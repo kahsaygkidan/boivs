@@ -1,3 +1,5 @@
+Validation failed — ownershipPercentage: must not be null; ownershipType: must not be null
+
 
 Tracing is incomplete (see the warnings). Continue anyway?
 ...
