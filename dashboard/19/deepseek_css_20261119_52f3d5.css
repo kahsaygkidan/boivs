@@ -1,0 +1,129 @@
+/* ============================== Risk chips ============================== */
+.dash-risk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid transparent;
+  background: var(--dash-surface, #fff);
+  cursor: default;
+  white-space: nowrap;
+}
+button.dash-risk-chip { cursor: pointer; }
+.dash-risk-chip--small { font-size: 11px; padding: 2px 7px; }
+.dash-risk-chip__dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+.dash-risk-chip__label { letter-spacing: -.005em; }
+.dash-risk-chip__score {
+  font-variant-numeric: tabular-nums;
+  opacity: .8; font-weight: 700;
+}
+.dash-risk-chip__x {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; padding: 0; margin-left: 2px;
+  color: inherit; cursor: pointer; opacity: .7;
+}
+.dash-risk-chip__x:hover { opacity: 1; }
+
+.dash-risk-chip--low    { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
+.dash-risk-chip--medium { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.dash-risk-chip--high   { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.dash-risk-chip--all    { color: #334155; background: #f1f5f9; border-color: #cbd5e1; }
+.dash-risk-chip--active {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, .12);
+  transform: translateY(-1px);
+}
+
+/* ============================== Risk panel ============================== */
+.dash-risk-panel {
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--dash-border, #e2e8f0);
+  background: var(--dash-surface, #fff);
+}
+.dash-risk-panel.dash-risk-bar--low    { border-color: #a7f3d0; background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%); }
+.dash-risk-panel.dash-risk-bar--medium { border-color: #fde68a; background: linear-gradient(180deg, #fffbeb 0%, #fff 100%); }
+.dash-risk-panel.dash-risk-bar--high   { border-color: #fecaca; background: linear-gradient(180deg, #fef2f2 0%, #fff 100%); }
+
+.dash-risk-panel__head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.dash-risk-panel__icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: rgba(15, 23, 42, .05); color: #334155; flex-shrink: 0;
+}
+.dash-risk-bar--low .dash-risk-panel__icon    { background: #d1fae5; color: #047857; }
+.dash-risk-bar--medium .dash-risk-panel__icon { background: #fef3c7; color: #b45309; }
+.dash-risk-bar--high .dash-risk-panel__icon   { background: #fee2e2; color: #b91c1c; }
+
+.dash-risk-panel__title-block { flex: 1; min-width: 0; }
+.dash-risk-panel__title { font-size: 14px; font-weight: 700; color: #0f172a; }
+.dash-risk-panel__sub   { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+.dash-risk-panel__meter {
+  height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden;
+  margin-bottom: 12px;
+}
+.dash-risk-panel__meter-fill {
+  height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, #10b981, #f59e0b 55%, #ef4444);
+  transition: width .5s cubic-bezier(.2, .8, .2, 1);
+}
+.dash-risk-panel__reasons {
+  margin: 0; padding-left: 18px; font-size: 12.5px; color: #334155;
+  display: grid; gap: 4px;
+}
+.dash-risk-panel__clean {
+  font-size: 12.5px; color: #047857; font-weight: 600;
+}
+
+/* ============================== Risk distribution ============================== */
+.dash-risk-dist { margin: 10px 0 16px; }
+.dash-risk-dist__bar {
+  display: flex; height: 8px; border-radius: 999px; overflow: hidden;
+  background: #e2e8f0; margin-bottom: 10px;
+}
+.dash-risk-dist__seg--low    { background: #10b981; }
+.dash-risk-dist__seg--medium { background: #f59e0b; }
+.dash-risk-dist__seg--high   { background: #ef4444; }
+.dash-risk-dist__chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+
+/* ============================== Skeletons ============================== */
+.dash-skeleton {
+  background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 50%, #eef2f7 75%);
+  background-size: 200% 100%;
+  animation: dash-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes dash-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.dash-skeleton-stack { display: flex; flex-direction: column; gap: 14px; }
+
+/* ============================== Header actions ============================== */
+.dashboard-header__actions {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.dash-header__pending {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #64748b; font-weight: 500;
+}
+.dash-spin { animation: dash-spin 1s linear infinite; }
+@keyframes dash-spin { to { transform: rotate(360deg); } }
+
+/* ============================== Combobox row ============================== */
+.dash-combo__item-main {
+  display: flex; flex-direction: column; min-width: 0; flex: 1;
+}
+.dash-combo__item {
+  display: flex; align-items: center; gap: 10px;
+}
