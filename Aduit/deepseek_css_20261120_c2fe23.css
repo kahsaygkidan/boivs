@@ -1,0 +1,93 @@
+/* =====================================================
+   DATE RANGE PRESETS
+   ===================================================== */
+
+.audit-date-preset-field {
+  grid-column: span 2;
+}
+
+.audit-date-preset-field > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audit-preset-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.audit-preset-btn {
+  padding: 8px 14px;
+  border: 1px solid #d6ddec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4a5670;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.audit-preset-btn:hover {
+  border-color: #263878;
+  color: #263878;
+  background: #f5f7fc;
+}
+
+.audit-preset-btn.is-active {
+  background: #263878;
+  border-color: #263878;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(38, 56, 120, 0.25);
+}
+
+.audit-preset-btn.is-active:hover {
+  background: #1e2d60;
+  border-color: #1e2d60;
+  color: #ffffff;
+}
+
+.audit-preset-btn:focus-visible {
+  outline: 2px solid #263878;
+  outline-offset: 2px;
+}
+
+/* Disabled custom date inputs look subdued until Custom is selected */
+
+.audit-field input[type="date"]:disabled {
+  background: #f4f6fa;
+  color: #97a1b5;
+  cursor: not-allowed;
+  border-color: #e2e7f0;
+}
+
+/* =====================================================
+   RESPONSIVE — stack presets on small screens
+   ===================================================== */
+
+@media (max-width: 768px) {
+  .audit-date-preset-field {
+    grid-column: span 1;
+  }
+
+  .audit-preset-group {
+    gap: 5px;
+  }
+
+  .audit-preset-btn {
+    padding: 7px 11px;
+    font-size: 12px;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .audit-preset-btn {
+    flex: 1 1 calc(50% - 5px);
+  }
+}
